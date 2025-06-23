@@ -71,7 +71,8 @@ export const forgotPassword = async (req, res) => {
     usuario.resetPasswordExpires = Date.now() + 3600000;
     await usuario.save();
 
-    const resetLink = `https://meus-projetos-xqwd.onrender.com/auth/redirect/reset-password/${token}`;
+    // ✅ Deep link corrigido aqui:
+    const resetLink = `financeapp://reset-password/${token}`;
 
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
@@ -90,7 +91,7 @@ export const forgotPassword = async (req, res) => {
       html: `
         <p>Olá,</p>
         <p>Você solicitou a redefinição de senha. Clique no link abaixo para criar uma nova senha:</p>
-        <a href="${resetLink}">Redefinir Senha</a>
+        <a href="${resetLink}">${resetLink}</a>
         <p>Se não foi você, ignore este e-mail.</p>
         <p>Att,<br/>Equipe Finance App</p>
       `,
@@ -104,7 +105,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// ✅ Redefinir a senha com token
+// Redefinir a senha com token
 export const resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
