@@ -67,11 +67,11 @@ export const forgotPassword = async (req, res) => {
     if (!usuario) return res.status(404).json({ msg: 'Usuário não encontrado.' });
 
     const token = crypto.randomBytes(20).toString('hex');
-    usuario.resetToken = token;
-    usuario.resetTokenExpires = Date.now() + 3600000; // 1 hora
+    usuario.resetPasswordToken = token;
+    usuario.resetPasswordExpires = Date.now() + 3600000;
     await usuario.save();
 
-    const resetLink = `${process.env.CLIENT_URL}/reset-password/${token}`;
+    const resetLink = `https://meus-projetos-xqwd.onrender.com/auth/redirect/reset-password/${token}`;
 
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
@@ -111,8 +111,8 @@ export const resetPassword = async (req, res) => {
     const { novaSenha } = req.body;
 
     const usuario = await User.findOne({
-      resetToken: token,
-      resetTokenExpires: { $gt: Date.now() },
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!usuario) {
@@ -120,8 +120,8 @@ export const resetPassword = async (req, res) => {
     }
 
     usuario.senha = novaSenha;
-    usuario.resetToken = undefined;
-    usuario.resetTokenExpires = undefined;
+    usuario.resetPasswordToken = undefined;
+    usuario.resetPasswordExpires = undefined;
     await usuario.save();
 
     res.json({ msg: 'Senha redefinida com sucesso.' });

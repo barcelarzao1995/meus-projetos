@@ -12,10 +12,17 @@ const router = express.Router();
 router.post('/register', registrar);
 router.post('/login', login);
 
-// Nova rota: solicitar redefinição
+// Solicitação de redefinição
 router.post('/forgot-password', forgotPassword);
 
-// Nova rota: redefinir senha com token
+// Redefinir senha com token
 router.post('/reset-password/:token', resetPassword);
+
+// 🔁 Redirecionamento para deep linking
+router.get('/redirect/reset-password/:token', (req, res) => {
+  const { token } = req.params;
+  const deepLink = `financeapp://reset-password/${token}`;
+  res.redirect(deepLink);
+});
 
 export default router;

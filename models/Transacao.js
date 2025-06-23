@@ -1,56 +1,43 @@
+// models/Transacao.js
 import mongoose from 'mongoose';
 
-const transacaoSchema = new mongoose.Schema({
-  tipo: {
-    type: String,
-    required: true,
-    enum: ['receita', 'despesa'],
-  },
-  descricao: {
-    type: String,
-    required: true,
-  },
-  valor: {
-    type: Number,
-    required: true,
-  },
-  dataCompra: {
-    type: Date,
-    required: true,
-  },
-  formaPagamento: {
-    type: String,
-    enum: ['pix', 'debito', 'cartao'],
-    required: function () {
-      return this.tipo === 'despesa';
+const TransacaoSchema = new mongoose.Schema(
+  {
+    tipo: {
+      type: String,
+      enum: ['receita', 'despesa'],
+      required: true,
+    },
+    descricao: String,
+    valor: {
+      type: Number,
+      required: true,
+    },
+    dataCompra: Date,
+    formaPagamento: {
+      type: String,
+      enum: ['pix', 'debito', 'cartao'],
+    },
+    cartaoDescricao: String,
+    parcelas: {
+      type: Number,
+      default: 1,
+    },
+    parcelaAtual: Number,
+    vencimento: String, // formato MM/YYYY
+    mesReferencia: String, // formato MM/YYYY
+    devedor: String,
+    idGrupoParcelas: String,
+    saldoDevedor: Number, // <-- NOVO CAMPO
+    usuario: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Usuario',
+      required: true,
     },
   },
-  cartaoDescricao: {
-    type: String,
-    default: '',
-  },
-  parcelas: {
-    type: Number,
-    default: 1,
-  },
-  vencimento: {
-    type: String,
-    default: '',
-  },
-  devedor: {
-    type: String,
-    default: '',
-  },
-  mesReferencia: {
-    type: String,
-    required: true,
-  },
-  usuario: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Usuario',
-    required: true,
-  },
-}, { timestamps: true });
+  {
+    timestamps: true,
+  }
+);
 
-const Transacao = mongoose.model('Transacao', transacaoSchema);
-export default Transacao;
+export default mongoose.model('Transacao', TransacaoSchema);

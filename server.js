@@ -5,10 +5,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import transacoesRoutes from './routes/transacoes.js';
-import syncRoutes from './routes/sync.js'; // se estiver usando a rota de sincronização
+import syncRoutes from './routes/sync.js'; // Opcional
 import authRoutes from './routes/auth.js';
+import notaRoutes from './routes/nota.js';
+import cartoesRoutes from './routes/cartoes.js';
+import devedoresRoutes from './routes/devedores.js';
 
-// Carrega as variáveis do .env
 dotenv.config();
 
 const app = express();
@@ -17,27 +19,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Rotas
+// Rotas principais
 app.use('/api/transacoes', transacoesRoutes);
-app.use('/api/sync', syncRoutes); // se estiver usando a rota /api/sync/sincronizar
-app.use('/api/auth', authRoutes);
-app.use('/auth', authRoutes);
+app.use('/api/sync', syncRoutes); // Se não estiver usando, pode comentar
+app.use('/api/auth', authRoutes); // 🔐 todas auth (login, registro, redefinição)
+app.use('/api/notas', notaRoutes);
+app.use('/api/cartoes', cartoesRoutes);
+app.use('/api/devedores', devedoresRoutes);
 
+// Health check (Render usa isso para saber se está tudo ok)
+app.get('/healthz', (req, res) => res.send('OK'));
+
+// Rota raiz (só para teste rápido)
 app.get('/', (req, res) => {
   res.send('🚀 API Financeira está funcionando!');
 });
 
 // Conexão com MongoDB Atlas
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('✅ Conectado ao MongoDB Atlas');
-
-    // Inicia o servidor após conexão
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('❌ Erro ao conectar ao MongoDB:', err.message);
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log('✅ Conectado ao MongoDB Atlas');
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
   });
+})
+.catch((err) => {
+  console.error('❌ Erro ao conectar ao MongoDB:', err.message);
+});
