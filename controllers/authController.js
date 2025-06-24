@@ -71,7 +71,6 @@ export const forgotPassword = async (req, res) => {
     usuario.resetPasswordExpires = Date.now() + 3600000;
     await usuario.save();
 
-    // ✅ Deep link corrigido aqui:
     const resetLink = `financeapp://reset-password/${token}`;
 
     const transporter = nodemailer.createTransport({
@@ -90,8 +89,22 @@ export const forgotPassword = async (req, res) => {
       subject: 'Redefinição de senha',
       html: `
         <p>Olá,</p>
-        <p>Você solicitou a redefinição de senha. Clique no link abaixo para criar uma nova senha:</p>
-        <a href="${resetLink}">${resetLink}</a>
+        <p>Você solicitou a redefinição de senha.</p>
+        <p><strong>Se estiver no celular</strong>, clique no botão abaixo para abrir o app e redefinir sua senha:</p>
+        <p style="margin: 20px 0;">
+          <a href="${resetLink}" style="
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            font-weight: bold;
+          ">Redefinir Senha</a>
+        </p>
+        <p>Ou copie e cole este link no navegador/app:</p>
+        <p><a href="${resetLink}">${resetLink}</a></p>
+        <br/>
         <p>Se não foi você, ignore este e-mail.</p>
         <p>Att,<br/>Equipe Finance App</p>
       `,
