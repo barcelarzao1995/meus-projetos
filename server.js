@@ -15,37 +15,44 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
+// ✅ Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Rotas principais
+// ✅ Rotas principais
 app.use('/api/transacoes', transacoesRoutes);
-app.use('/api/sync', syncRoutes); // Se não estiver usando, pode comentar
-app.use('/api/auth', authRoutes); // 🔐 todas auth (login, registro, redefinição)
+app.use('/api/sync', syncRoutes); // Se não usar sincronização, pode remover
+app.use('/api/auth', authRoutes); // login, registro, etc
 app.use('/api/notas', notaRoutes);
 app.use('/api/cartoes', cartoesRoutes);
 app.use('/api/devedores', devedoresRoutes);
 
-// Health check (Render usa isso para saber se está tudo ok)
+// ✅ Health check para Render
 app.get('/healthz', (req, res) => res.send('OK'));
 
-// Rota raiz (só para teste rápido)
+// ✅ Página inicial
 app.get('/', (req, res) => {
   res.send('🚀 API Financeira está funcionando!');
 });
 
-// Conexão com MongoDB Atlas
-mongoose.connect(process.env.MONGO_URI, {
+// ✅ Conexão MongoDB e start do servidor
+const PORT = process.env.PORT || 3001;
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+  console.error('❌ MONGO_URI não definido no .env');
+  process.exit(1);
+}
+
+mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => {
   console.log('✅ Conectado ao MongoDB Atlas');
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () =>
+    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`)
+  );
 })
 .catch((err) => {
   console.error('❌ Erro ao conectar ao MongoDB:', err.message);

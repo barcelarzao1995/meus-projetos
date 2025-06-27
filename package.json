@@ -2,11 +2,11 @@
   "name": "financeapp-backend",
   "version": "1.0.0",
   "description": "Backend do FinanceApp com Node.js e MongoDB",
-  "main": "index.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon server.js"
   },
   "keywords": [],
   "author": "Seu Nome",
