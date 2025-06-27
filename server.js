@@ -10,6 +10,8 @@ import authRoutes from './routes/auth.js';
 import notaRoutes from './routes/nota.js';
 import cartoesRoutes from './routes/cartoes.js';
 import devedoresRoutes from './routes/devedores.js';
+import movimentosRoutes from './routes/movimentos.js';
+
 
 dotenv.config();
 
@@ -26,6 +28,7 @@ app.use('/api/auth', authRoutes); // login, registro, etc
 app.use('/api/notas', notaRoutes);
 app.use('/api/cartoes', cartoesRoutes);
 app.use('/api/devedores', devedoresRoutes);
+app.use('/api/movimentos', movimentosRoutes);
 
 // ✅ Health check para Render
 app.get('/healthz', (req, res) => res.send('OK'));
