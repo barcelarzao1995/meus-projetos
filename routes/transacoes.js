@@ -107,7 +107,7 @@ router.put('/:id', autenticarToken, async (req, res) => {
     } = req.body;
 
     const pagamento = formaPagamento?.toLowerCase();
-    const dataCompraFormatada = dataCompra ? moment(dataCompra, 'DD/MM/YYYY').toDate() : null;
+    const dataCompraFormatada = dataCompra ? new Date(dataCompra) : null;
 
     if (dataCompra && !isValid(dataCompraFormatada)) {
       return res.status(400).json({ error: 'Data da compra inválida.' });
