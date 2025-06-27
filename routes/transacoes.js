@@ -4,10 +4,11 @@ import Transacao from '../models/Transacao.js';
 import { autenticarToken } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import moment from 'moment';
+import { isValid } from 'date-fns';
 
 const router = express.Router();
 
-// Listar todas as transações
+// 📌 Listar transações do usuário logado
 router.get('/', autenticarToken, async (req, res) => {
   try {
     const usuarioId = req.user.id;
@@ -18,7 +19,7 @@ router.get('/', autenticarToken, async (req, res) => {
   }
 });
 
-// Criar nova transação
+// 📌 Criar nova transação
 router.post('/', autenticarToken, async (req, res) => {
   try {
     const {
@@ -32,9 +33,18 @@ router.post('/', autenticarToken, async (req, res) => {
 
     const usuarioId = req.user.id;
     const pagamento = formaPagamento?.toLowerCase();
-    const dataCompraFormatada = dataCompra ? new Date(dataCompra) : undefined;
+
+    const dataCompraFormatada = dataCompra ? new Date(dataCompra) : null;
+
+    if (dataCompra && !isValid(dataCompraFormatada)) {
+      return res.status(400).json({ error: 'Data da compra inválida.' });
+    }
 
     if (resto.tipo === 'despesa' && pagamento === 'cartao' && parcelas > 1) {
+      if (!vencimento || !/^\d{2}\/\d{4}$/.test(vencimento)) {
+        return res.status(400).json({ error: 'Vencimento da 1ª parcela inválido.' });
+      }
+
       const grupoParcelasId = uuidv4();
       const valorParcela = parseFloat(valor);
       const saldoDevedor = parseFloat((valorParcela * parcelas).toFixed(2));
@@ -83,7 +93,7 @@ router.post('/', autenticarToken, async (req, res) => {
   }
 });
 
-// Editar uma transação
+// 📌 Editar transação existente
 router.put('/:id', autenticarToken, async (req, res) => {
   try {
     const {
@@ -97,7 +107,12 @@ router.put('/:id', autenticarToken, async (req, res) => {
     } = req.body;
 
     const pagamento = formaPagamento?.toLowerCase();
-    const dataCompraFormatada = dataCompra ? new Date(dataCompra) : undefined;
+    const dataCompraFormatada = dataCompra ? new Date(dataCompra) : null;
+
+    if (dataCompra && !isValid(dataCompraFormatada)) {
+      return res.status(400).json({ error: 'Data da compra inválida.' });
+    }
+
     const transacaoOriginal = await Transacao.findOne({ _id: req.params.id, usuario: req.user.id });
 
     if (
@@ -107,6 +122,10 @@ router.put('/:id', autenticarToken, async (req, res) => {
       parcelas > 1 &&
       !transacaoOriginal.idGrupoParcelas
     ) {
+      if (!vencimento || !/^\d{2}\/\d{4}$/.test(vencimento)) {
+        return res.status(400).json({ error: 'Vencimento da 1ª parcela inválido.' });
+      }
+
       const idGrupoParcelas = uuidv4();
       const valorParcela = parseFloat(valor);
       const saldoDevedor = parseFloat((valorParcela * parcelas).toFixed(2));
@@ -152,8 +171,8 @@ router.put('/:id', autenticarToken, async (req, res) => {
       valor,
       parcelas,
       vencimento,
-      ...(dataCompra && { dataCompra: new Date(dataCompra) }),
-      ...(formaPagamento && { formaPagamento: pagamento })
+      ...(dataCompra && { dataCompra: dataCompraFormatada }),
+      ...(formaPagamento && { formaPagamento: pagamento }),
     };
 
     const transacaoAtualizada = await Transacao.findOneAndUpdate(
@@ -172,12 +191,12 @@ router.put('/:id', autenticarToken, async (req, res) => {
   }
 });
 
-// Excluir transação individual
+// 📌 Excluir uma transação
 router.delete('/:id', autenticarToken, async (req, res) => {
   try {
     const deletada = await Transacao.findOneAndDelete({
       _id: req.params.id,
-      usuario: req.user.id
+      usuario: req.user.id,
     });
 
     if (!deletada) {
@@ -190,7 +209,7 @@ router.delete('/:id', autenticarToken, async (req, res) => {
   }
 });
 
-// Excluir grupo de parcelas
+// 📌 Excluir grupo de parcelas
 router.delete('/grupo/:idGrupoParcelas', autenticarToken, async (req, res) => {
   try {
     const { idGrupoParcelas } = req.params;
@@ -198,7 +217,7 @@ router.delete('/grupo/:idGrupoParcelas', autenticarToken, async (req, res) => {
 
     const resultado = await Transacao.deleteMany({
       idGrupoParcelas,
-      usuario: usuarioId
+      usuario: usuarioId,
     });
 
     if (resultado.deletedCount === 0) {
