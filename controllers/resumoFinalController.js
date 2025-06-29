@@ -9,32 +9,43 @@ export const getResumoFinal = async (req, res) => {
     const meses = [];
 
     for (let i = 0; i < 7; i++) {
-      const ref = dayjs().add(i, 'month');
-      const mesRef = ref.format('YYYY-MM');
-      const inicio = ref.startOf('month').toDate();
-      const fim = ref.endOf('month').toDate();
+      const dataRef = dayjs().add(i, 'month');
+      const mesLabel = dataRef.format('MM/YYYY');
+      const inicioMes = dataRef.startOf('month').toDate();
+      const fimMes = dataRef.endOf('month').toDate();
 
+      // 🔹 Buscar transações do mês
       const transacoes = await Transacao.find({
         userId,
-        formaPagamento: 'Cartão',
-        dataCompra: { $gte: inicio, $lte: fim }
+        dataCompra: { $gte: inicioMes, $lte: fimMes },
       });
 
+      // 🔹 Buscar despesas fixas e receitas fixas
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
 
+      // 🔸 Calcular totais
       const totalTransacoes = transacoes.reduce((acc, t) => acc + t.valor, 0);
       const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + d.valor, 0);
       const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + r.valor, 0);
-      const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
+      const valorFinal = totalTransacoes + totalDespesasFixas - totalReceitasFixas;
 
       meses.push({
-        mes: mesRef,
-        transacoes: transacoes.map(t => ({ descricao: t.descricao, valor: t.valor })),
+        mes: mesLabel,
+        transacoes: transacoes.map((t) => ({
+          descricao: t.descricao,
+          valor: t.valor,
+        })),
+        despesasFixas: despesasFixas.map((d) => ({
+          descricao: d.descricao,
+          valor: d.valor,
+        })),
+        receitasFixas: receitasFixas.map((r) => ({
+          descricao: r.descricao,
+          valor: r.valor,
+        })),
         totalTransacoes,
-        despesasFixas: despesasFixas.map(d => ({ descricao: d.descricao, valor: d.valor })),
         totalDespesasFixas,
-        receitasFixas: receitasFixas.map(r => ({ descricao: r.descricao, valor: r.valor })),
         totalReceitasFixas,
         valorFinal,
       });
@@ -42,7 +53,7 @@ export const getResumoFinal = async (req, res) => {
 
     res.json(meses);
   } catch (err) {
-    console.error('Erro ao gerar resumo final', err);
-    res.status(500).json({ erro: 'Erro ao gerar resumo final' });
+    console.error('Erro ao gerar resumo final:', err);
+    res.status(500).json({ error: 'Erro ao gerar resumo final' });
   }
 };
