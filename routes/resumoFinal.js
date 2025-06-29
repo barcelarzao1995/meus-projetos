@@ -1,9 +1,9 @@
 import express from 'express';
 import { getResumoFinal } from '../controllers/resumoFinalController.js';
-import auth from '../middleware/auth.js';
+import { autenticarToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', auth, getResumoFinal);
+router.get('/', autenticarToken, getResumoFinal);
 
 export default router;
