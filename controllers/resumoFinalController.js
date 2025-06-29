@@ -1,5 +1,4 @@
 // ✅ controllers/resumoFinalController.js
-
 // ✅ controllers/resumoFinalController.js
 
 import Transacao from '../models/Transacao.js';
@@ -10,24 +9,25 @@ import dayjs from 'dayjs';
 export const getResumoFinal = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { devedor, cartaoDescricao } = req.query; // filtros opcionais
+    const { cartaoSelecionado, devedorSelecionado } = req.query;
     const resultado = [];
 
     for (let i = 0; i < 7; i++) {
       const ref = dayjs().add(i, 'month');
       const mes = ref.format('MM/YYYY');
+      const inicio = ref.startOf('month').toDate();
+      const fim = ref.endOf('month').toDate();
 
-      const filtroTransacoes = {
+      // Transações feitas com cartão no mês de vencimento (e filtradas)
+      const filtro = {
         usuario: userId,
         formaPagamento: 'cartao',
-        vencimento: mes, // usa vencimento, não dataCompra
+        vencimento: mes,
       };
+      if (cartaoSelecionado) filtro.cartaoDescricao = cartaoSelecionado;
+      if (devedorSelecionado) filtro.devedor = devedorSelecionado;
 
-      if (devedor) filtroTransacoes.devedor = devedor;
-      if (cartaoDescricao) filtroTransacoes.cartaoDescricao = cartaoDescricao;
-
-      const transacoes = await Transacao.find(filtroTransacoes);
-
+      const transacoes = await Transacao.find(filtro);
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
 
