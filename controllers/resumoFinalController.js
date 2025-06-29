@@ -1,5 +1,7 @@
 // ✅ controllers/resumoFinalController.js
 
+// ✅ controllers/resumoFinalController.js
+
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
@@ -8,18 +10,23 @@ import dayjs from 'dayjs';
 export const getResumoFinal = async (req, res) => {
   try {
     const userId = req.user.id;
+    const { devedor, cartaoDescricao } = req.query; // filtros opcionais
     const resultado = [];
 
     for (let i = 0; i < 7; i++) {
       const ref = dayjs().add(i, 'month');
       const mes = ref.format('MM/YYYY');
 
-      // Filtrar transações com base no campo "vencimento" no formato MM/YYYY
-      const transacoes = await Transacao.find({
+      const filtroTransacoes = {
         usuario: userId,
         formaPagamento: 'cartao',
-        vencimento: mes,
-      });
+        vencimento: mes, // usa vencimento, não dataCompra
+      };
+
+      if (devedor) filtroTransacoes.devedor = devedor;
+      if (cartaoDescricao) filtroTransacoes.cartaoDescricao = cartaoDescricao;
+
+      const transacoes = await Transacao.find(filtroTransacoes);
 
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
