@@ -13,14 +13,12 @@ export const getResumoFinal = async (req, res) => {
     for (let i = 0; i < 7; i++) {
       const ref = dayjs().add(i, 'month');
       const mes = ref.format('MM/YYYY');
-      const inicio = ref.startOf('month').toDate();
-      const fim = ref.endOf('month').toDate();
 
-      // Transações feitas com cartão no mês atual
+      // Filtrar transações com base no campo "vencimento" no formato MM/YYYY
       const transacoes = await Transacao.find({
         usuario: userId,
         formaPagamento: 'cartao',
-        dataCompra: { $gte: inicio, $lte: fim }
+        vencimento: mes,
       });
 
       const despesasFixas = await DespesaFixa.find({ userId });
