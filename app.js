@@ -10,6 +10,8 @@ import cartoesRoutes from './routes/cartoes.js';
 import devedoresRoutes from './routes/devedores.js';
 import despesasFixasRoutes from './routes/despesasFixas.js';
 import receitasFixasRoutes from './routes/receitasFixas.js';
+import resumoFinalRoutes from './routes/resumoFinal.js';           // ✅ NOVA
+import resumoFinalExcelRoutes from './routes/resumoFinalExcel.js'; // ✅ NOVA
 
 dotenv.config();
 
@@ -23,10 +25,14 @@ app.use('/api/transacoes', transacoesRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notas', notaRoutes);
-app.use('/api/cartoes', cartoesRoutes); // ⚠️ repare no /api
-app.use('/api/devedores', devedoresRoutes); // ⚠️ repare no /api
+app.use('/api/cartoes', cartoesRoutes);
+app.use('/api/devedores', devedoresRoutes);
 app.use('/api/despesas-fixas', despesasFixasRoutes);
 app.use('/api/receitas-fixas', receitasFixasRoutes);
+
+// ✅ Rotas de Resumo Financeiro
+app.use('/api/resumo-final', resumoFinalRoutes);
+app.use('/api/resumo-final', resumoFinalExcelRoutes); // Excel export → /excel
 
 app.get('/', (req, res) => {
   res.send('🚀 API conectada com MongoDB');
