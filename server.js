@@ -13,6 +13,8 @@ import devedoresRoutes from './routes/devedores.js';
 import movimentosRoutes from './routes/movimentos.js';
 import despesasFixasRoutes from './routes/despesasFixas.js';
 import receitasFixasRoutes from './routes/receitasFixas.js';
+import resumoFinalRoutes from './routes/resumoFinal.js';
+import resumoFinalExcel from './routes/resumoFinalExcel.js';
 
 
 dotenv.config();
@@ -33,6 +35,9 @@ app.use('/api/devedores', devedoresRoutes);
 app.use('/api/movimentos', movimentosRoutes);
 app.use('/api/despesas-fixas', despesasFixasRoutes);
 app.use('/api/receitas-fixas', receitasFixasRoutes);
+app.use('/api/resumo-final', resumoFinalRoutes);
+app.use('/api/resumo-final', resumoFinalExcel);
+
 
 // ✅ Health check para Render
 app.get('/healthz', (req, res) => res.send('OK'));
