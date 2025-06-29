@@ -11,6 +11,8 @@ import notaRoutes from './routes/nota.js';
 import cartoesRoutes from './routes/cartoes.js';
 import devedoresRoutes from './routes/devedores.js';
 import movimentosRoutes from './routes/movimentos.js';
+import despesasFixasRoutes from './routes/despesasFixas.js';
+import receitasFixasRoutes from './routes/receitasFixas.js';
 
 
 dotenv.config();
@@ -29,6 +31,8 @@ app.use('/api/notas', notaRoutes);
 app.use('/api/cartoes', cartoesRoutes);
 app.use('/api/devedores', devedoresRoutes);
 app.use('/api/movimentos', movimentosRoutes);
+app.use('/api/despesas-fixas', despesasFixasRoutes);
+app.use('/api/receitas-fixas', receitasFixasRoutes);
 
 // ✅ Health check para Render
 app.get('/healthz', (req, res) => res.send('OK'));
