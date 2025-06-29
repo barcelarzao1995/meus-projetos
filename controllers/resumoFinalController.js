@@ -1,4 +1,4 @@
-// ✅ backend/controllers/resumoFinalController.js
+// controllers/resumoFinalController.js
 
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
@@ -16,27 +16,28 @@ export const getResumoFinal = async (req, res) => {
       const inicio = ref.startOf('month').toDate();
       const fim = ref.endOf('month').toDate();
 
+      // Filtrar transações feitas com cartão dentro do mês
       const transacoes = await Transacao.find({
-        userId,
-        formaPagamento: 'Cartão',
+        usuario: userId,
+        formaPagamento: 'cartao',
         dataCompra: { $gte: inicio, $lte: fim },
       });
 
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
 
-      const totalCartoes = transacoes.reduce((acc, t) => acc + t.valor, 0);
+      const totalTransacoes = transacoes.reduce((acc, t) => acc + t.valor, 0);
       const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + d.valor, 0);
       const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + r.valor, 0);
-      const valorFinal = totalCartoes + totalDespesasFixas - totalReceitasFixas;
+      const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
 
       resumo.push({
         mes,
         transacoes: transacoes.map(t => ({ descricao: t.descricao, valor: t.valor })),
-        totalCartoes,
         despesasFixas: despesasFixas.map(d => ({ descricao: d.descricao, valor: d.valor })),
-        totalDespesasFixas,
         receitasFixas: receitasFixas.map(r => ({ descricao: r.descricao, valor: r.valor })),
+        totalTransacoes,
+        totalDespesasFixas,
         totalReceitasFixas,
         valorFinal,
       });
@@ -44,7 +45,7 @@ export const getResumoFinal = async (req, res) => {
 
     res.json(resumo);
   } catch (err) {
-    console.error('Erro ao gerar resumo final:', err);
-    res.status(500).json({ erro: 'Erro ao gerar resumo final' });
+    console.error('Erro ao gerar resumo:', err);
+    res.status(500).json({ erro: 'Erro ao gerar resumo financeiro' });
   }
 };
