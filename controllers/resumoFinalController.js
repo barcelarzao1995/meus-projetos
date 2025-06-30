@@ -2,7 +2,7 @@ import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
 
-export const getResumoFinanceiro = async (userId, cartaoSelecionado = '', devedorSelecionado = '') => {
+export const getResumoFinal = async (userId, cartaoSelecionado = '', devedorSelecionado = '') => {
   // Filtro base
   const filtroBase = { user: userId };
   if (cartaoSelecionado) filtroBase.cartao = cartaoSelecionado;

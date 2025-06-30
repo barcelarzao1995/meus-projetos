@@ -1,6 +1,6 @@
 // controllers/resumoFinalExcelController.js
 import ExcelJS from 'exceljs';
-import { getResumoFinanceiro } from './resumoFinalController.js';
+import { getResumoFinal } from './resumoFinalController.js';
 
 export const exportarResumoExcel = async (req, res) => {
   try {
@@ -8,7 +8,7 @@ export const exportarResumoExcel = async (req, res) => {
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
     // Obtem os dados já filtrados
-    const resumo = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
+    const resumo = await getResumoFinal(userId, cartaoSelecionado, devedorSelecionado);
 
     const workbook = new ExcelJS.Workbook();
     const resumoSheet = workbook.addWorksheet('Resumo');
