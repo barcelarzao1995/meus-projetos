@@ -1,92 +1,84 @@
-// ✅ controllers/resumoFinalExcelController.js
+// controllers/resumoFinalExcelController.js
 import ExcelJS from 'exceljs';
-import { Readable } from 'stream';
-import dayjs from 'dayjs';
-import Transacao from '../models/Transacao.js';
-import DespesaFixa from '../models/DespesaFixa.js';
-import ReceitaFixa from '../models/ReceitaFixa.js';
+import { Buffer } from 'buffer';
+import { getResumoFinanceiro } from './resumoFinalController.js';
 
 export const exportarResumoExcel = async (req, res) => {
   try {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    const workbook = new ExcelJS.Workbook();
-    const dataHoje = dayjs().format('DD-MM-YYYY');
+    // Obtem os dados já filtrados
+    const resumo = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
 
-    // Pegar o vencimento mais distante
-    const transacoesCartao = await Transacao.find({
-      usuario: userId,
-      formaPagamento: 'cartao',
-      ...(cartaoSelecionado && { cartaoDescricao: cartaoSelecionado }),
-      ...(devedorSelecionado && { devedor: devedorSelecionado }),
+    const workbook = new ExcelJS.Workbook();
+    const resumoSheet = workbook.addWorksheet('Resumo');
+
+    // Estilo de cabeçalho
+    const headerStyle = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4E89AE' } },
+      alignment: { horizontal: 'center' },
+      border: {
+        top: { style: 'thin' },
+        bottom: { style: 'thin' },
+        left: { style: 'thin' },
+        right: { style: 'thin' },
+      },
+    };
+
+    // Cabeçalho da aba "Resumo"
+    resumoSheet.columns = [
+      { header: 'Mês', key: 'mes', width: 15 },
+      { header: 'Total Transações', key: 'totalTransacoes', width: 20 },
+      { header: 'Total Despesas Fixas', key: 'totalDespesasFixas', width: 22 },
+      { header: 'Total Receitas Fixas', key: 'totalReceitasFixas', width: 22 },
+      { header: 'Valor Final', key: 'valorFinal', width: 20 },
+    ];
+    resumoSheet.getRow(1).eachCell(cell => (cell.style = headerStyle));
+
+    // Preenche a aba resumo com hyperlink para as abas mensais
+    resumo.forEach((mes, index) => {
+      resumoSheet.addRow({
+        mes: { text: mes.mes, hyperlink: `#${mes.mes}!A1` },
+        totalTransacoes: mes.totalTransacoes,
+        totalDespesasFixas: mes.totalDespesasFixas,
+        totalReceitasFixas: mes.totalReceitasFixas,
+        valorFinal: mes.valorFinal,
+      });
     });
 
-    const vencimentosUnicos = [
-      ...new Set(transacoesCartao.map((t) => t.vencimento)),
-    ].sort((a, b) => dayjs(a, 'MM/YYYY') - dayjs(b, 'MM/YYYY'));
+    // Adiciona aba por mês com drill-down
+    resumo.forEach((mesResumo) => {
+      const aba = workbook.addWorksheet(mesResumo.mes);
 
-    for (const mes of vencimentosUnicos) {
-      const worksheet = workbook.addWorksheet(mes);
-
-      worksheet.columns = [
-        { header: 'Tipo', key: 'tipo', width: 20 },
-        { header: 'Descrição', key: 'descricao', width: 40 },
-        { header: 'Valor (R$)', key: 'valor', width: 20 },
+      aba.columns = [
+        { header: 'Tipo', key: 'tipo', width: 22 },
+        { header: 'Descrição', key: 'descricao', width: 35 },
+        { header: 'Valor (R$)', key: 'valor', width: 18 },
       ];
+      aba.getRow(1).eachCell(cell => (cell.style = headerStyle));
 
-      worksheet.getRow(1).font = { bold: true };
-      worksheet.getRow(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFCCE5FF' },
-      };
-      worksheet.getRow(1).alignment = { horizontal: 'center' };
-
-      const filtro = {
-        usuario: userId,
-        formaPagamento: 'cartao',
-        vencimento: mes,
-      };
-      if (cartaoSelecionado) filtro.cartaoDescricao = cartaoSelecionado;
-      if (devedorSelecionado) filtro.devedor = devedorSelecionado;
-
-      const transacoes = await Transacao.find(filtro);
-      const despesasFixas = await DespesaFixa.find({ userId });
-      const receitasFixas = await ReceitaFixa.find({ userId });
-
-      const linhas = [];
-
-      transacoes.forEach((t) => {
-        linhas.push({
-          tipo: 'Cartão',
-          descricao: t.descricao,
-          valor: Number(t.valor || 0),
-        });
+      mesResumo.transacoes.forEach(t => {
+        aba.addRow({ tipo: 'Transação', descricao: t.descricao, valor: t.valor });
       });
 
-      despesasFixas.forEach((d) => {
-        linhas.push({
-          tipo: 'Despesa Fixa',
-          descricao: d.descricao,
-          valor: Number(d.valor || 0),
-        });
+      mesResumo.despesasFixas.forEach(d => {
+        aba.addRow({ tipo: 'Despesa Fixa', descricao: d.descricao, valor: d.valor });
       });
 
-      receitasFixas.forEach((r) => {
-        linhas.push({
-          tipo: 'Receita Fixa',
-          descricao: r.descricao,
-          valor: Number(r.valor || 0),
-        });
+      mesResumo.receitasFixas.forEach(r => {
+        aba.addRow({ tipo: 'Receita Fixa', descricao: r.descricao, valor: r.valor });
       });
 
-      linhas.forEach((linha) => worksheet.addRow(linha));
+      aba.addRow({});
+      aba.addRow({ tipo: 'TOTAL TRANSAÇÕES', valor: mesResumo.totalTransacoes });
+      aba.addRow({ tipo: 'TOTAL DESPESAS FIXAS', valor: mesResumo.totalDespesasFixas });
+      aba.addRow({ tipo: 'TOTAL RECEITAS FIXAS', valor: mesResumo.totalReceitasFixas });
+      aba.addRow({ tipo: 'VALOR FINAL', valor: mesResumo.valorFinal });
 
-      // Estilizar linhas e somar
-      let total = 0;
-      worksheet.eachRow((row, index) => {
-        if (index === 1) return; // pular header
+      // Aplica borda e alinhamento às células
+      aba.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {
             top: { style: 'thin' },
@@ -94,32 +86,17 @@ export const exportarResumoExcel = async (req, res) => {
             left: { style: 'thin' },
             right: { style: 'thin' },
           };
+          cell.alignment = { vertical: 'middle', horizontal: 'left' };
         });
-        const valor = row.getCell('valor').value;
-        if (typeof valor === 'number') total += valor;
       });
+    });
 
-      const totalRow = worksheet.addRow({
-        tipo: '',
-        descricao: 'Total',
-        valor: total,
-      });
-
-      totalRow.font = { bold: true };
-      totalRow.getCell('descricao').alignment = { horizontal: 'right' };
-      totalRow.getCell('valor').numFmt = '"R$"#,##0.00';
-    }
-
-    // Preparar resposta
     const buffer = await workbook.xlsx.writeBuffer();
-    const stream = Readable.from(buffer);
-    const filename = `resumo-financeiro-${dataHoje}.xlsx`;
-
+    res.setHeader('Content-Disposition', 'attachment; filename="resumo-financeiro.xlsx"');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    stream.pipe(res);
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error('Erro ao exportar Excel:', err);
-    res.status(500).json({ erro: 'Erro ao gerar Excel' });
+    console.error('❌ Erro ao exportar Excel:', err);
+    res.status(500).json({ error: 'Erro ao gerar o Excel' });
   }
 };
