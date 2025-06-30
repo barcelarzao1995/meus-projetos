@@ -1,38 +1,36 @@
 import ExcelJS from 'exceljs';
+import dayjs from 'dayjs';
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
-import dayjs from 'dayjs';
-import { Buffer } from 'buffer';
 
-export const gerarExcelResumo = async (req, res) => {
+export const exportarResumoExcel = async (req, res) => {
   try {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Resumo Financeiro');
+    const mesesComCartao = await Transacao.find({
+      usuario: userId,
+      formaPagamento: 'cartao',
+    }).distinct('vencimento');
 
-    // Cabeçalho
-    sheet.addRow([
-      'Mês',
-      'Descrição Transação',
-      'Valor Transação',
-      'Descrição Despesa Fixa',
-      'Valor Despesa Fixa',
-      'Descrição Receita Fixa',
-      'Valor Receita Fixa',
-      'Total Mês',
-    ]);
+    const mesesOrdenados = mesesComCartao
+      .map((m) => dayjs(`01/${m}`, 'DD/MM/YYYY'))
+      .sort((a, b) => a.isAfter(b) ? 1 : -1);
 
-    // Coleta de dados mês a mês
-    let mesIndex = 0;
-    let mesesProcessados = 0;
-    const LIMITE_MESES = 24;
+    for (const dataRef of mesesOrdenados) {
+      const mes = dataRef.format('MM/YYYY');
+      const worksheet = workbook.addWorksheet(mes.replace('/', '-'));
 
-    while (mesesProcessados < LIMITE_MESES) {
-      const ref = dayjs().add(mesIndex, 'month');
-      const mes = ref.format('MM/YYYY');
+      worksheet.columns = [
+        { header: 'Descrição Transação', key: 'descricaoTransacao', width: 30 },
+        { header: 'Valor Transação', key: 'valorTransacao', width: 20 },
+        { header: 'Descrição Despesa Fixa', key: 'descricaoDespesa', width: 30 },
+        { header: 'Valor Despesa Fixa', key: 'valorDespesa', width: 20 },
+        { header: 'Descrição Receita Fixa', key: 'descricaoReceita', width: 30 },
+        { header: 'Valor Receita Fixa', key: 'valorReceita', width: 20 },
+      ];
 
       const filtro = {
         usuario: userId,
@@ -46,47 +44,42 @@ export const gerarExcelResumo = async (req, res) => {
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
 
-      if (transacoes.length === 0 && mesesProcessados > 0) break;
+      const maxLength = Math.max(
+        transacoes.length,
+        despesasFixas.length,
+        receitasFixas.length
+      );
+
+      for (let i = 0; i < maxLength; i++) {
+        worksheet.addRow({
+          descricaoTransacao: transacoes[i]?.descricao || '',
+          valorTransacao: transacoes[i]?.valor || '',
+          descricaoDespesa: despesasFixas[i]?.descricao || '',
+          valorDespesa: despesasFixas[i]?.valor || '',
+          descricaoReceita: receitasFixas[i]?.descricao || '',
+          valorReceita: receitasFixas[i]?.valor || '',
+        });
+      }
 
       const totalTransacoes = transacoes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
       const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + (Number(d.valor) || 0), 0);
       const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
-      const totalMes = totalTransacoes + totalDespesasFixas - totalReceitasFixas;
+      const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
 
-      const maxLinhas = Math.max(
-        transacoes.length,
-        despesasFixas.length,
-        receitasFixas.length,
-        1
-      );
-
-      for (let i = 0; i < maxLinhas; i++) {
-        sheet.addRow([
-          i === 0 ? mes : '',
-
-          transacoes[i]?.descricao || '',
-          transacoes[i] ? Number(transacoes[i].valor) : '',
-
-          despesasFixas[i]?.descricao || '',
-          despesasFixas[i] ? Number(despesasFixas[i].valor) : '',
-
-          receitasFixas[i]?.descricao || '',
-          receitasFixas[i] ? Number(receitasFixas[i].valor) : '',
-
-          i === 0 ? totalMes : '',
-        ]);
-      }
-
-      mesIndex++;
-      mesesProcessados++;
+      worksheet.addRow({});
+      worksheet.addRow({ descricaoTransacao: 'Total Transações', valorTransacao: totalTransacoes });
+      worksheet.addRow({ descricaoDespesa: 'Total Despesas Fixas', valorDespesa: totalDespesasFixas });
+      worksheet.addRow({ descricaoReceita: 'Total Receitas Fixas', valorReceita: totalReceitasFixas });
+      worksheet.addRow({ descricaoTransacao: 'Valor Final', valorTransacao: valorFinal });
     }
 
-    // Geração do buffer e resposta em base64
-    const buffer = await workbook.xlsx.writeBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    res.json({ base64 });
-  } catch (err) {
-    console.error('Erro ao gerar Excel do resumo:', err);
-    res.status(500).json({ erro: 'Erro ao gerar Excel do resumo' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=resumo-financeiro.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Erro ao gerar Excel:', error);
+    res.status(500).json({ erro: 'Erro ao gerar Excel' });
   }
 };
