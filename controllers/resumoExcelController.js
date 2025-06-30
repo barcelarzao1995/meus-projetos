@@ -1,4 +1,4 @@
-// controllers/resumoExcelController.js
+// ✅ controllers/resumoExcelController.js
 
 import ExcelJS from 'exceljs';
 import Transacao from '../models/Transacao.js';
@@ -9,29 +9,37 @@ import dayjs from 'dayjs';
 export const gerarResumoExcel = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { devedor, cartaoDescricao } = req.query;
+    const { cartaoSelecionado, devedorSelecionado } = req.query;
+
+    // Encontrar o último vencimento
+    const ultima = await Transacao.find({ usuario: userId, formaPagamento: 'cartao' })
+      .sort({ vencimento: -1 })
+      .limit(1);
+
+    const ultimoMes = ultima[0]?.vencimento || dayjs().format('MM/YYYY');
+
+    // Montar lista de meses de hoje até o último vencimento
+    const meses = [];
+    let ref = dayjs();
+    while (ref.format('MM/YYYY') <= ultimoMes) {
+      meses.push(ref.format('MM/YYYY'));
+      ref = ref.add(1, 'month');
+    }
 
     const workbook = new ExcelJS.Workbook();
     const abaResumo = workbook.addWorksheet('Resumo Geral');
+    abaResumo.addRow(['Mês', 'Total Transações', 'Total Despesas Fixas', 'Total Receitas Fixas', 'Valor Final']);
 
-    abaResumo.addRow([
-      'Mês', 'Total Transações', 'Total Despesas Fixas', 'Total Receitas Fixas', 'Valor Final'
-    ]);
-
-    for (let i = 0; i < 7; i++) {
-      const ref = dayjs().add(i, 'month');
-      const mes = ref.format('MM/YYYY');
-
-      const filtroTransacoes = {
+    for (const mes of meses) {
+      const filtro = {
         usuario: userId,
         formaPagamento: 'cartao',
-        vencimento: mes
+        vencimento: mes,
       };
+      if (cartaoSelecionado) filtro.cartaoDescricao = cartaoSelecionado;
+      if (devedorSelecionado) filtro.devedor = devedorSelecionado;
 
-      if (devedor) filtroTransacoes.devedor = devedor;
-      if (cartaoDescricao) filtroTransacoes.cartaoDescricao = cartaoDescricao;
-
-      const transacoes = await Transacao.find(filtroTransacoes);
+      const transacoes = await Transacao.find(filtro);
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
 
@@ -41,30 +49,27 @@ export const gerarResumoExcel = async (req, res) => {
       const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
 
       abaResumo.addRow([
-        mes, totalTransacoes, totalDespesasFixas, totalReceitasFixas, valorFinal
+        mes, totalTransacoes, totalDespesasFixas, totalReceitasFixas, valorFinal,
       ]);
 
-      // Aba por mês detalhada
+      // Aba do mês detalhada
       const abaMes = workbook.addWorksheet(mes);
-      abaMes.addRow(['Descrição', 'Valor', 'Tipo']);
+      abaMes.addRow(['Descrição', 'Valor (R$)', 'Tipo']);
 
-      transacoes.forEach(t => {
+      transacoes.forEach((t) => {
         abaMes.addRow([t.descricao, t.valor, 'Transação']);
       });
-
-      despesasFixas.forEach(d => {
+      despesasFixas.forEach((d) => {
         abaMes.addRow([d.descricao, d.valor, 'Despesa Fixa']);
       });
-
-      receitasFixas.forEach(r => {
+      receitasFixas.forEach((r) => {
         abaMes.addRow([r.descricao, r.valor, 'Receita Fixa']);
       });
 
       abaMes.addRow([]);
-      abaMes.addRow(['Total Final', valorFinal]);
+      abaMes.addRow(['TOTAL FINAL', valorFinal]);
     }
 
-    // Enviar arquivo como buffer
     const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="resumo-financeiro.xlsx"');
