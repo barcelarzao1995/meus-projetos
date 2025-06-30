@@ -1,9 +1,11 @@
+// routes/resumoExcelRoutes.js
 import express from 'express';
-import { gerarResumoExcel } from '../controllers/resumoExcelController.js';
-import { autenticarToken } from '../middleware/auth.js'; // CORREÇÃO
+import { autenticarToken } from '../middleware/authMiddleware.js';
+import { exportarResumoExcel } from '../controllers/resumoExcelController.js';
 
 const router = express.Router();
+router.use(autenticarToken);
 
-router.get('/excel', autenticarToken, gerarResumoExcel); // CORREÇÃO
+router.get('/excel', exportarResumoExcel);
 
 export default router;
