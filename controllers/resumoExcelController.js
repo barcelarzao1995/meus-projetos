@@ -1,92 +1,92 @@
-// ✅ controllers/resumoExcelController.js
-
 import ExcelJS from 'exceljs';
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
 import dayjs from 'dayjs';
+import { Buffer } from 'buffer';
 
-export const exportarResumoExcel = async (req, res) => {
+export const gerarExcelResumo = async (req, res) => {
   try {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    const filtroBase = {
-      usuario: userId,
-      formaPagamento: 'cartao',
-    };
-    if (cartaoSelecionado) filtroBase.cartaoDescricao = cartaoSelecionado;
-    if (devedorSelecionado) filtroBase.devedor = devedorSelecionado;
-
-    const transacoes = await Transacao.find(filtroBase);
-    const vencimentosUnicos = [...new Set(transacoes.map((t) => t.vencimento))].sort((a, b) => {
-      const [ma, ya] = a.split('/');
-      const [mb, yb] = b.split('/');
-      return new Date(`${yb}-${mb}-01`) - new Date(`${ya}-${ma}-01`);
-    });
-
-    const despesasFixas = await DespesaFixa.find({ userId });
-    const receitasFixas = await ReceitaFixa.find({ userId });
-
     const workbook = new ExcelJS.Workbook();
-    const resumoSheet = workbook.addWorksheet('Resumo');
+    const sheet = workbook.addWorksheet('Resumo Financeiro');
 
-    resumoSheet.columns = [
-      { header: 'Mês', key: 'mes', width: 15 },
-      { header: 'Total Transações', key: 'transacoes', width: 20 },
-      { header: 'Total Despesas Fixas', key: 'despesasFixas', width: 20 },
-      { header: 'Total Receitas Fixas', key: 'receitasFixas', width: 20 },
-      { header: 'Valor Final', key: 'valorFinal', width: 20 },
-    ];
+    // Cabeçalho
+    sheet.addRow([
+      'Mês',
+      'Descrição Transação',
+      'Valor Transação',
+      'Descrição Despesa Fixa',
+      'Valor Despesa Fixa',
+      'Descrição Receita Fixa',
+      'Valor Receita Fixa',
+      'Total Mês',
+    ]);
 
-    for (const mes of vencimentosUnicos) {
-      const transacoesMes = transacoes.filter((t) => t.vencimento === mes);
-      const totalTransacoes = transacoesMes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
+    // Coleta de dados mês a mês
+    let mesIndex = 0;
+    let mesesProcessados = 0;
+    const LIMITE_MESES = 24;
+
+    while (mesesProcessados < LIMITE_MESES) {
+      const ref = dayjs().add(mesIndex, 'month');
+      const mes = ref.format('MM/YYYY');
+
+      const filtro = {
+        usuario: userId,
+        formaPagamento: 'cartao',
+        vencimento: mes,
+      };
+      if (cartaoSelecionado) filtro.cartaoDescricao = cartaoSelecionado;
+      if (devedorSelecionado) filtro.devedor = devedorSelecionado;
+
+      const transacoes = await Transacao.find(filtro);
+      const despesasFixas = await DespesaFixa.find({ userId });
+      const receitasFixas = await ReceitaFixa.find({ userId });
+
+      if (transacoes.length === 0 && mesesProcessados > 0) break;
+
+      const totalTransacoes = transacoes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
       const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + (Number(d.valor) || 0), 0);
       const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
-      const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
+      const totalMes = totalTransacoes + totalDespesasFixas - totalReceitasFixas;
 
-      // Adiciona linha no Resumo com hiperlink
-      resumoSheet.addRow({
-        mes: { text: mes, hyperlink: `#${mes.replace('/', '-')}` },
-        transacoes: totalTransacoes,
-        despesasFixas: totalDespesasFixas,
-        receitasFixas: totalReceitasFixas,
-        valorFinal,
-      });
+      const maxLinhas = Math.max(
+        transacoes.length,
+        despesasFixas.length,
+        receitasFixas.length,
+        1
+      );
 
-      // Criar aba detalhada
-      const sheet = workbook.addWorksheet(mes.replace('/', '-'));
-      sheet.columns = [
-        { header: 'Descrição Transação', key: 'descT', width: 25 },
-        { header: 'Valor Transação', key: 'valT', width: 15 },
-        { header: 'Descrição Despesa Fixa', key: 'descD', width: 25 },
-        { header: 'Valor Despesa', key: 'valD', width: 15 },
-        { header: 'Descrição Receita Fixa', key: 'descR', width: 25 },
-        { header: 'Valor Receita', key: 'valR', width: 15 },
-      ];
+      for (let i = 0; i < maxLinhas; i++) {
+        sheet.addRow([
+          i === 0 ? mes : '',
 
-      const maxLen = Math.max(transacoesMes.length, despesasFixas.length, receitasFixas.length);
+          transacoes[i]?.descricao || '',
+          transacoes[i] ? Number(transacoes[i].valor) : '',
 
-      for (let i = 0; i < maxLen; i++) {
-        sheet.addRow({
-          descT: transacoesMes[i]?.descricao || '',
-          valT: transacoesMes[i]?.valor || '',
-          descD: despesasFixas[i]?.descricao || '',
-          valD: despesasFixas[i]?.valor || '',
-          descR: receitasFixas[i]?.descricao || '',
-          valR: receitasFixas[i]?.valor || '',
-        });
+          despesasFixas[i]?.descricao || '',
+          despesasFixas[i] ? Number(despesasFixas[i].valor) : '',
+
+          receitasFixas[i]?.descricao || '',
+          receitasFixas[i] ? Number(receitasFixas[i].valor) : '',
+
+          i === 0 ? totalMes : '',
+        ]);
       }
+
+      mesIndex++;
+      mesesProcessados++;
     }
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=ResumoFinanceiro.xlsx');
-
-    await workbook.xlsx.write(res);
-    res.end();
+    // Geração do buffer e resposta em base64
+    const buffer = await workbook.xlsx.writeBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    res.json({ base64 });
   } catch (err) {
-    console.error('Erro ao exportar Excel:', err);
-    res.status(500).json({ erro: 'Erro ao gerar Excel' });
+    console.error('Erro ao gerar Excel do resumo:', err);
+    res.status(500).json({ erro: 'Erro ao gerar Excel do resumo' });
   }
 };
