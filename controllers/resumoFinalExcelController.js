@@ -1,4 +1,6 @@
+// ✅ controllers/resumoFinalExcelController.js
 import ExcelJS from 'exceljs';
+import { Readable } from 'stream';
 import dayjs from 'dayjs';
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
@@ -10,27 +12,36 @@ export const exportarResumoExcel = async (req, res) => {
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
     const workbook = new ExcelJS.Workbook();
-    const mesesComCartao = await Transacao.find({
+    const dataHoje = dayjs().format('DD-MM-YYYY');
+
+    // Pegar o vencimento mais distante
+    const transacoesCartao = await Transacao.find({
       usuario: userId,
       formaPagamento: 'cartao',
-    }).distinct('vencimento');
+      ...(cartaoSelecionado && { cartaoDescricao: cartaoSelecionado }),
+      ...(devedorSelecionado && { devedor: devedorSelecionado }),
+    });
 
-    const mesesOrdenados = mesesComCartao
-      .map((m) => dayjs(`01/${m}`, 'DD/MM/YYYY'))
-      .sort((a, b) => a.isAfter(b) ? 1 : -1);
+    const vencimentosUnicos = [
+      ...new Set(transacoesCartao.map((t) => t.vencimento)),
+    ].sort((a, b) => dayjs(a, 'MM/YYYY') - dayjs(b, 'MM/YYYY'));
 
-    for (const dataRef of mesesOrdenados) {
-      const mes = dataRef.format('MM/YYYY');
-      const worksheet = workbook.addWorksheet(mes.replace('/', '-'));
+    for (const mes of vencimentosUnicos) {
+      const worksheet = workbook.addWorksheet(mes);
 
       worksheet.columns = [
-        { header: 'Descrição Transação', key: 'descricaoTransacao', width: 30 },
-        { header: 'Valor Transação', key: 'valorTransacao', width: 20 },
-        { header: 'Descrição Despesa Fixa', key: 'descricaoDespesa', width: 30 },
-        { header: 'Valor Despesa Fixa', key: 'valorDespesa', width: 20 },
-        { header: 'Descrição Receita Fixa', key: 'descricaoReceita', width: 30 },
-        { header: 'Valor Receita Fixa', key: 'valorReceita', width: 20 },
+        { header: 'Tipo', key: 'tipo', width: 20 },
+        { header: 'Descrição', key: 'descricao', width: 40 },
+        { header: 'Valor (R$)', key: 'valor', width: 20 },
       ];
+
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFCCE5FF' },
+      };
+      worksheet.getRow(1).alignment = { horizontal: 'center' };
 
       const filtro = {
         usuario: userId,
@@ -44,42 +55,71 @@ export const exportarResumoExcel = async (req, res) => {
       const despesasFixas = await DespesaFixa.find({ userId });
       const receitasFixas = await ReceitaFixa.find({ userId });
 
-      const maxLength = Math.max(
-        transacoes.length,
-        despesasFixas.length,
-        receitasFixas.length
-      );
+      const linhas = [];
 
-      for (let i = 0; i < maxLength; i++) {
-        worksheet.addRow({
-          descricaoTransacao: transacoes[i]?.descricao || '',
-          valorTransacao: transacoes[i]?.valor || '',
-          descricaoDespesa: despesasFixas[i]?.descricao || '',
-          valorDespesa: despesasFixas[i]?.valor || '',
-          descricaoReceita: receitasFixas[i]?.descricao || '',
-          valorReceita: receitasFixas[i]?.valor || '',
+      transacoes.forEach((t) => {
+        linhas.push({
+          tipo: 'Cartão',
+          descricao: t.descricao,
+          valor: Number(t.valor || 0),
         });
-      }
+      });
 
-      const totalTransacoes = transacoes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
-      const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + (Number(d.valor) || 0), 0);
-      const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
-      const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
+      despesasFixas.forEach((d) => {
+        linhas.push({
+          tipo: 'Despesa Fixa',
+          descricao: d.descricao,
+          valor: Number(d.valor || 0),
+        });
+      });
 
-      worksheet.addRow({});
-      worksheet.addRow({ descricaoTransacao: 'Total Transações', valorTransacao: totalTransacoes });
-      worksheet.addRow({ descricaoDespesa: 'Total Despesas Fixas', valorDespesa: totalDespesasFixas });
-      worksheet.addRow({ descricaoReceita: 'Total Receitas Fixas', valorReceita: totalReceitasFixas });
-      worksheet.addRow({ descricaoTransacao: 'Valor Final', valorTransacao: valorFinal });
+      receitasFixas.forEach((r) => {
+        linhas.push({
+          tipo: 'Receita Fixa',
+          descricao: r.descricao,
+          valor: Number(r.valor || 0),
+        });
+      });
+
+      linhas.forEach((linha) => worksheet.addRow(linha));
+
+      // Estilizar linhas e somar
+      let total = 0;
+      worksheet.eachRow((row, index) => {
+        if (index === 1) return; // pular header
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        const valor = row.getCell('valor').value;
+        if (typeof valor === 'number') total += valor;
+      });
+
+      const totalRow = worksheet.addRow({
+        tipo: '',
+        descricao: 'Total',
+        valor: total,
+      });
+
+      totalRow.font = { bold: true };
+      totalRow.getCell('descricao').alignment = { horizontal: 'right' };
+      totalRow.getCell('valor').numFmt = '"R$"#,##0.00';
     }
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=resumo-financeiro.xlsx');
+    // Preparar resposta
+    const buffer = await workbook.xlsx.writeBuffer();
+    const stream = Readable.from(buffer);
+    const filename = `resumo-financeiro-${dataHoje}.xlsx`;
 
-    await workbook.xlsx.write(res);
-    res.end();
-  } catch (error) {
-    console.error('Erro ao gerar Excel:', error);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    stream.pipe(res);
+  } catch (err) {
+    console.error('Erro ao exportar Excel:', err);
     res.status(500).json({ erro: 'Erro ao gerar Excel' });
   }
 };
