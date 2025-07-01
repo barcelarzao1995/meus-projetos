@@ -1,19 +1,27 @@
+
 // controllers/resumoFinalExcelController.js
 import ExcelJS from 'exceljs';
 import { getResumoFinanceiro } from './resumoFinalController.js';
+
+const aplicarFormatoMonetario = (worksheet, colunaKey) => {
+  worksheet.eachRow((row, rowNumber) => {
+    const cell = row.getCell(colunaKey);
+    if (rowNumber > 1 && typeof cell.value === 'number') {
+      cell.numFmt = 'R$ #,##0.00';
+    }
+  });
+};
 
 export const exportarResumoExcel = async (req, res) => {
   try {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    // Obtem os dados já filtrados
     const resumo = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
 
     const workbook = new ExcelJS.Workbook();
     const resumoSheet = workbook.addWorksheet('Resumo');
 
-    // Estilo de cabeçalho
     const headerStyle = {
       font: { bold: true, color: { argb: 'FFFFFFFF' } },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4E89AE' } },
@@ -26,7 +34,6 @@ export const exportarResumoExcel = async (req, res) => {
       },
     };
 
-    // Cabeçalho da aba "Resumo"
     resumoSheet.columns = [
       { header: 'Mês', key: 'mes', width: 15 },
       { header: 'Total Transações', key: 'totalTransacoes', width: 20 },
@@ -36,11 +43,10 @@ export const exportarResumoExcel = async (req, res) => {
     ];
     resumoSheet.getRow(1).eachCell(cell => (cell.style = headerStyle));
 
-    // Preenche a aba resumo com hyperlink para as abas mensais
     resumo.forEach((mes) => {
-      const nomeAba = mes.mes.replace(/\//g, '-');
+      const abaNome = mes.mes.replace(/[\/*?:\[\]]/g, '-');
       resumoSheet.addRow({
-        mes: { text: mes.mes, hyperlink: `#${nomeAba}!A1` },
+        mes: { text: mes.mes, hyperlink: `#${abaNome}!A1` },
         totalTransacoes: mes.totalTransacoes,
         totalDespesasFixas: mes.totalDespesasFixas,
         totalReceitasFixas: mes.totalReceitasFixas,
@@ -48,10 +54,14 @@ export const exportarResumoExcel = async (req, res) => {
       });
     });
 
-    // Adiciona aba por mês com drill-down
+    aplicarFormatoMonetario(resumoSheet, 2);
+    aplicarFormatoMonetario(resumoSheet, 3);
+    aplicarFormatoMonetario(resumoSheet, 4);
+    aplicarFormatoMonetario(resumoSheet, 5);
+
     resumo.forEach((mesResumo) => {
-      const nomeAba = mesResumo.mes.replace(/\//g, '-');
-      const aba = workbook.addWorksheet(nomeAba);
+      const abaNome = mesResumo.mes.replace(/[\/*?:\[\]]/g, '-');
+      const aba = workbook.addWorksheet(abaNome);
 
       aba.columns = [
         { header: 'Tipo', key: 'tipo', width: 22 },
@@ -78,7 +88,8 @@ export const exportarResumoExcel = async (req, res) => {
       aba.addRow({ tipo: 'TOTAL RECEITAS FIXAS', valor: mesResumo.totalReceitasFixas });
       aba.addRow({ tipo: 'VALOR FINAL', valor: mesResumo.valorFinal });
 
-      // Aplica bordas e alinhamento às células
+      aplicarFormatoMonetario(aba, 3);
+
       aba.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {
