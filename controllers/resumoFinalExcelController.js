@@ -1,6 +1,5 @@
 // controllers/resumoFinalExcelController.js
 import ExcelJS from 'exceljs';
-import { Buffer } from 'buffer';
 import { getResumoFinanceiro } from './resumoFinalController.js';
 
 export const exportarResumoExcel = async (req, res) => {
@@ -38,7 +37,7 @@ export const exportarResumoExcel = async (req, res) => {
     resumoSheet.getRow(1).eachCell(cell => (cell.style = headerStyle));
 
     // Preenche a aba resumo com hyperlink para as abas mensais
-    resumo.forEach((mes, index) => {
+    resumo.forEach((mes) => {
       resumoSheet.addRow({
         mes: { text: mes.mes, hyperlink: `#${mes.mes}!A1` },
         totalTransacoes: mes.totalTransacoes,
@@ -77,7 +76,7 @@ export const exportarResumoExcel = async (req, res) => {
       aba.addRow({ tipo: 'TOTAL RECEITAS FIXAS', valor: mesResumo.totalReceitasFixas });
       aba.addRow({ tipo: 'VALOR FINAL', valor: mesResumo.valorFinal });
 
-      // Aplica borda e alinhamento às células
+      // Aplica bordas e alinhamento às células
       aba.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {
@@ -94,7 +93,8 @@ export const exportarResumoExcel = async (req, res) => {
     const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Disposition', 'attachment; filename="resumo-financeiro.xlsx"');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(Buffer.from(buffer));
+    res.send(buffer); // ✅ sem Buffer.from()
+
   } catch (err) {
     console.error('❌ Erro ao exportar Excel:', err);
     res.status(500).json({ error: 'Erro ao gerar o Excel' });
