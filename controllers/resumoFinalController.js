@@ -1,71 +1,80 @@
-// controllers/resumoFinalController.js
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
 import dayjs from 'dayjs';
 
-export const getResumoFinal = async (userId, cartaoSelecionado, devedorSelecionado) => {
-  // Busca transações do usuário com filtros aplicados
-  const filtro = { userId };
-  if (cartaoSelecionado) filtro.cartao = cartaoSelecionado;
-  if (devedorSelecionado) filtro.devedor = devedorSelecionado;
+export const getResumoFinanceiro = async (userId, cartaoSelecionado, devedorSelecionado) => {
+  const filtroBase = { usuario: userId, formaPagamento: 'cartao' };
+  const todasTransacoes = await Transacao.find(filtroBase);
+  const mesesUnicosSet = new Set();
 
-  const transacoes = await Transacao.find(filtro);
-
-  // Organiza por mês
-  const meses = {};
-  for (const t of transacoes) {
-    const mes = dayjs(t.vencimento).format('MMMM/YYYY');
-    if (!meses[mes]) meses[mes] = { transacoes: [], despesasFixas: [], receitasFixas: [] };
-
-    meses[mes].transacoes.push(t);
-  }
-
-  // Busca despesas e receitas fixas do usuário
-  const despesasFixas = await DespesaFixa.find({ userId });
-  const receitasFixas = await ReceitaFixa.find({ userId });
-
-  // Aplica despesas e receitas fixas a todos os meses encontrados
-  for (const mes in meses) {
-    meses[mes].despesasFixas = despesasFixas;
-    meses[mes].receitasFixas = receitasFixas;
-  }
-
-  // Monta o resumo final com totais
-  const resultado = Object.entries(meses).map(([mes, dados]) => {
-    const totalTransacoes = dados.transacoes.reduce((s, t) => s + t.valor, 0);
-    const totalDespesasFixas = dados.despesasFixas.reduce((s, d) => s + d.valor, 0);
-    const totalReceitasFixas = dados.receitasFixas.reduce((s, r) => s + r.valor, 0);
-    const valorFinal = totalTransacoes + totalDespesasFixas - totalReceitasFixas;
-
-    return {
-      mes,
-      transacoes: dados.transacoes,
-      despesasFixas: dados.despesasFixas,
-      receitasFixas: dados.receitasFixas,
-      totalTransacoes,
-      totalDespesasFixas,
-      totalReceitasFixas,
-      valorFinal,
-    };
+  todasTransacoes.forEach(t => {
+    if (t.vencimento) mesesUnicosSet.add(t.vencimento);
   });
 
-  // Ordena os meses cronologicamente
-  return resultado.sort((a, b) =>
-    dayjs(a.mes, 'MMMM/YYYY').isAfter(dayjs(b.mes, 'MMMM/YYYY')) ? 1 : -1
-  );
+  const mesesOrdenados = Array.from(mesesUnicosSet)
+    .sort((a, b) => {
+      const [ma, aa] = a.split('/').map(Number);
+      const [mb, ab] = b.split('/').map(Number);
+      return aa !== ab ? aa - ab : ma - mb;
+    });
+
+  const resultado = [];
+
+  for (const mes of mesesOrdenados) {
+    const [mesNum, anoNum] = mes.split('/').map(Number);
+
+    const filtro = {
+      usuario: userId,
+      formaPagamento: 'cartao',
+      vencimento: mes,
+    };
+    if (cartaoSelecionado) filtro.cartaoDescricao = cartaoSelecionado;
+    if (devedorSelecionado) filtro.devedor = devedorSelecionado;
+
+    const transacoes = await Transacao.find(filtro);
+    const despesasFixas = await DespesaFixa.find({ userId });
+    const receitasFixas = await ReceitaFixa.find({ userId });
+
+    const totalTransacoes = transacoes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
+    const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + (Number(d.valor) || 0), 0);
+    const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
+    const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
+
+    resultado.push({
+      mes,
+      transacoes: transacoes.map(t => ({
+        descricao: t.descricao,
+        valor: Number(t.valor) || 0,
+      })),
+      despesasFixas: despesasFixas.map(d => ({
+        descricao: d.descricao,
+        valor: Number(d.valor) || 0,
+      })),
+      receitasFixas: receitasFixas.map(r => ({
+        descricao: r.descricao,
+        valor: Number(r.valor) || 0,
+      })),
+      totalTransacoes: Number(totalTransacoes.toFixed(2)) || 0,
+      totalDespesasFixas: Number(totalDespesasFixas.toFixed(2)) || 0,
+      totalReceitasFixas: Number(totalReceitasFixas.toFixed(2)) || 0,
+      valorFinal: Number(valorFinal.toFixed(2)) || 0,
+    });
+  }
+
+  return resultado;
 };
 
-// Endpoint padrão GET /resumo-final
+// ✅ Handler que usa a função e responde com JSON
 export const getResumoFinal = async (req, res) => {
   try {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    const dados = await getResumoFinal(userId, cartaoSelecionado, devedorSelecionado);
-    res.json(dados);
-  } catch (error) {
-    console.error('❌ Erro ao carregar resumo final:', error);
-    res.status(500).json({ error: 'Erro ao gerar resumo final' });
+    const resultado = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
+    res.json(resultado);
+  } catch (err) {
+    console.error('Erro ao gerar resumo final:', err);
+    res.status(500).json({ erro: 'Erro ao gerar resumo final' });
   }
 };
