@@ -7,13 +7,13 @@ export const exportarResumoExcel = async (req, res) => {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    // Obtem os dados já filtrados
+    // ✅ Obtem os dados filtrados
     const resumo = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
 
     const workbook = new ExcelJS.Workbook();
     const resumoSheet = workbook.addWorksheet('Resumo');
 
-    // Estilo de cabeçalho
+    // ✅ Estilo do cabeçalho
     const headerStyle = {
       font: { bold: true, color: { argb: 'FFFFFFFF' } },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4E89AE' } },
@@ -26,7 +26,7 @@ export const exportarResumoExcel = async (req, res) => {
       },
     };
 
-    // Cabeçalho da aba "Resumo"
+    // ✅ Cabeçalho da aba principal
     resumoSheet.columns = [
       { header: 'Mês', key: 'mes', width: 15 },
       { header: 'Total Transações', key: 'totalTransacoes', width: 20 },
@@ -36,18 +36,18 @@ export const exportarResumoExcel = async (req, res) => {
     ];
     resumoSheet.getRow(1).eachCell(cell => (cell.style = headerStyle));
 
-    // Preenche a aba resumo com hyperlink para as abas mensais
-    resumo.forEach((mes) => {
+    // ✅ Linhas do resumo + hyperlink para abas por mês
+    resumo.forEach((mesResumo) => {
       resumoSheet.addRow({
-        mes: { text: mes.mes, hyperlink: `#${mes.mes}!A1` },
-        totalTransacoes: mes.totalTransacoes,
-        totalDespesasFixas: mes.totalDespesasFixas,
-        totalReceitasFixas: mes.totalReceitasFixas,
-        valorFinal: mes.valorFinal,
+        mes: { text: mesResumo.mes, hyperlink: `#${mesResumo.mes}!A1` },
+        totalTransacoes: mesResumo.totalTransacoes,
+        totalDespesasFixas: mesResumo.totalDespesasFixas,
+        totalReceitasFixas: mesResumo.totalReceitasFixas,
+        valorFinal: mesResumo.valorFinal,
       });
     });
 
-    // Adiciona aba por mês com drill-down
+    // ✅ Aba detalhada por mês (drill-down)
     resumo.forEach((mesResumo) => {
       const aba = workbook.addWorksheet(mesResumo.mes);
 
@@ -58,17 +58,15 @@ export const exportarResumoExcel = async (req, res) => {
       ];
       aba.getRow(1).eachCell(cell => (cell.style = headerStyle));
 
-      mesResumo.transacoes.forEach(t => {
-        aba.addRow({ tipo: 'Transação', descricao: t.descricao, valor: t.valor });
-      });
-
-      mesResumo.despesasFixas.forEach(d => {
-        aba.addRow({ tipo: 'Despesa Fixa', descricao: d.descricao, valor: d.valor });
-      });
-
-      mesResumo.receitasFixas.forEach(r => {
-        aba.addRow({ tipo: 'Receita Fixa', descricao: r.descricao, valor: r.valor });
-      });
+      mesResumo.transacoes.forEach(t =>
+        aba.addRow({ tipo: 'Transação', descricao: t.descricao, valor: t.valor })
+      );
+      mesResumo.despesasFixas.forEach(d =>
+        aba.addRow({ tipo: 'Despesa Fixa', descricao: d.descricao, valor: d.valor })
+      );
+      mesResumo.receitasFixas.forEach(r =>
+        aba.addRow({ tipo: 'Receita Fixa', descricao: r.descricao, valor: r.valor })
+      );
 
       aba.addRow({});
       aba.addRow({ tipo: 'TOTAL TRANSAÇÕES', valor: mesResumo.totalTransacoes });
@@ -76,7 +74,6 @@ export const exportarResumoExcel = async (req, res) => {
       aba.addRow({ tipo: 'TOTAL RECEITAS FIXAS', valor: mesResumo.totalReceitasFixas });
       aba.addRow({ tipo: 'VALOR FINAL', valor: mesResumo.valorFinal });
 
-      // Aplica bordas e alinhamento às células
       aba.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {
@@ -90,11 +87,12 @@ export const exportarResumoExcel = async (req, res) => {
       });
     });
 
+    // ✅ Gera o buffer e envia como arquivo
     const buffer = await workbook.xlsx.writeBuffer();
+
     res.setHeader('Content-Disposition', 'attachment; filename="resumo-financeiro.xlsx"');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer); // ✅ sem Buffer.from()
-
+    res.send(Buffer.from(buffer));
   } catch (err) {
     console.error('❌ Erro ao exportar Excel:', err);
     res.status(500).json({ error: 'Erro ao gerar o Excel' });

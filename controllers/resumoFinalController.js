@@ -1,10 +1,13 @@
+// controllers/resumoFinalController.js
 import Transacao from '../models/Transacao.js';
 import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
-import dayjs from 'dayjs';
 
 export const getResumoFinanceiro = async (userId, cartaoSelecionado, devedorSelecionado) => {
   const filtroBase = { usuario: userId, formaPagamento: 'cartao' };
+  if (cartaoSelecionado) filtroBase.cartaoDescricao = cartaoSelecionado;
+  if (devedorSelecionado) filtroBase.devedor = devedorSelecionado;
+
   const todasTransacoes = await Transacao.find(filtroBase);
   const mesesUnicosSet = new Set();
 
@@ -22,8 +25,6 @@ export const getResumoFinanceiro = async (userId, cartaoSelecionado, devedorSele
   const resultado = [];
 
   for (const mes of mesesOrdenados) {
-    const [mesNum, anoNum] = mes.split('/').map(Number);
-
     const filtro = {
       usuario: userId,
       formaPagamento: 'cartao',
@@ -65,7 +66,7 @@ export const getResumoFinanceiro = async (userId, cartaoSelecionado, devedorSele
   return resultado;
 };
 
-// ✅ Handler que usa a função e responde com JSON
+// ✅ Handler que responde no endpoint /api/resumo-final
 export const getResumoFinal = async (req, res) => {
   try {
     const userId = req.user.id;
