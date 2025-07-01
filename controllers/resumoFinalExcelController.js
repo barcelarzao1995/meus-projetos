@@ -94,7 +94,8 @@ export const exportarResumoExcel = async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error('❌ Erro ao exportar Excel:', err);
-    res.status(500).json({ error: 'Erro ao gerar o Excel' });
-  }
+      console.error('❌ Erro ao exportar Excel:', err);
+      res.status(500).json({ error: 'Erro ao gerar o Excel', detalhe: err.message });
+    }
+
 };
