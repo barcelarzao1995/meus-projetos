@@ -4,7 +4,7 @@ import DespesaFixa from '../models/DespesaFixa.js';
 import ReceitaFixa from '../models/ReceitaFixa.js';
 import dayjs from 'dayjs';
 
-export const getResumoFinanceiro = async (userId, cartaoSelecionado, devedorSelecionado) => {
+export const getResumoFinal = async (userId, cartaoSelecionado, devedorSelecionado) => {
   // Busca transações do usuário com filtros aplicados
   const filtro = { userId };
   if (cartaoSelecionado) filtro.cartao = cartaoSelecionado;
@@ -62,7 +62,7 @@ export const getResumoFinal = async (req, res) => {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    const dados = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
+    const dados = await getResumoFinal(userId, cartaoSelecionado, devedorSelecionado);
     res.json(dados);
   } catch (error) {
     console.error('❌ Erro ao carregar resumo final:', error);
