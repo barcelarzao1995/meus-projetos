@@ -40,6 +40,7 @@ router.post('/', autenticarToken, async (req, res) => {
       return res.status(400).json({ error: 'Data da compra inválida.' });
     }
 
+    // 📌 Transação parcelada no cartão
     if (resto.tipo === 'despesa' && pagamento === 'cartao' && parcelas > 1) {
       if (!vencimento || !/^\d{2}\/\d{4}$/.test(vencimento)) {
         return res.status(400).json({ error: 'Vencimento da 1ª parcela inválido.' });
@@ -77,12 +78,26 @@ router.post('/', autenticarToken, async (req, res) => {
       return res.status(201).json({ message: 'Parcelas criadas com sucesso' });
     }
 
+    // 📌 Transação à vista no cartão: garantir vencimento
+    let vencimentoUnico = vencimento;
+    if (
+      resto.tipo === 'despesa' &&
+      pagamento === 'cartao' &&
+      parcelas === 1
+    ) {
+      if (!vencimentoUnico && dataCompraFormatada) {
+        const data = moment(dataCompraFormatada);
+        vencimentoUnico = data.format('MM/YYYY');
+      }
+    }
+
     const novaTransacao = new Transacao({
       ...resto,
       valor,
       parcelas,
       dataCompra: dataCompraFormatada,
       formaPagamento: pagamento,
+      vencimento: vencimentoUnico,
       usuario: usuarioId,
     });
 
