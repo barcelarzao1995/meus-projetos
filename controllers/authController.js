@@ -144,3 +144,15 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ msg: 'Erro ao redefinir senha.' });
   }
 };
+
+// Retornar dados do usuário autenticado
+export const usuarioAutenticado = async (req, res) => {
+  try {
+    const { _id, nome, email } = req.user;
+    res.json({ id: _id, nome, email });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Erro ao buscar dados do usuário.' });
+  }
+};
+

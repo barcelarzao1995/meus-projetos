@@ -10,8 +10,12 @@ import cartoesRoutes from './routes/cartoes.js';
 import devedoresRoutes from './routes/devedores.js';
 import despesasFixasRoutes from './routes/despesasFixas.js';
 import receitasFixasRoutes from './routes/receitasFixas.js';
-import resumoFinalRoutes from './routes/resumoFinal.js';           // ✅ NOVA
-import resumoFinalExcelRoutes from './routes/resumoFinalExcel.js'; // ✅ NOVA
+import resumoFinalRoutes from './routes/resumoFinal.js';
+import resumoFinalExcelRoutes from './routes/resumoFinalExcel.js';
+
+// ✅ Importações necessárias
+import { autenticarToken } from './middleware/auth.js';
+import { usuarioAutenticado } from './controllers/authController.js';
 
 dotenv.config();
 
@@ -29,6 +33,9 @@ app.use('/api/cartoes', cartoesRoutes);
 app.use('/api/devedores', devedoresRoutes);
 app.use('/api/despesas-fixas', despesasFixasRoutes);
 app.use('/api/receitas-fixas', receitasFixasRoutes);
+
+// ✅ Rota protegida para retornar o usuário autenticado
+app.get('/api/auth/usuario', autenticarToken, usuarioAutenticado);
 
 // ✅ Rotas de Resumo Financeiro
 app.use('/api/resumo-final', resumoFinalRoutes);
