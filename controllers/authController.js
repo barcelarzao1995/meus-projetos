@@ -4,12 +4,10 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
-// Gerar token JWT
 const gerarToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'segredo123', { expiresIn: '7d' });
 };
 
-// Registro de usuário
 export const registrar = async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
@@ -29,7 +27,6 @@ export const registrar = async (req, res) => {
   }
 };
 
-// Login
 export const login = async (req, res) => {
   try {
     const { email, senha } = req.body;
@@ -59,7 +56,6 @@ export const login = async (req, res) => {
   }
 };
 
-// Solicitação de redefinição de senha
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -68,7 +64,7 @@ export const forgotPassword = async (req, res) => {
 
     const token = crypto.randomBytes(20).toString('hex');
     usuario.resetPasswordToken = token;
-    usuario.resetPasswordExpires = Date.now() + 3600000;
+    usuario.resetPasswordExpires = Date.now() + 3600000; // 1 hora
     await usuario.save();
 
     const resetLink = `financeapp://reset-password/${token}`;
@@ -118,7 +114,6 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// Redefinir a senha com token
 export const resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
@@ -145,14 +140,12 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// Retornar dados do usuário autenticado
 export const usuarioAutenticado = async (req, res) => {
   try {
-    const { _id, nome, email } = req.user;
+    const { _id, nome, email } = req.usuario; // ✅ Corrigido aqui
     res.json({ id: _id, nome, email });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Erro ao buscar dados do usuário.' });
   }
 };
-
