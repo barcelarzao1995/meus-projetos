@@ -9,15 +9,14 @@ export const autenticarToken = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'Token não fornecido.' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'segredo123');
-    const usuario = await User.findById(decoded.id).select('-senha');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(401).json({ error: 'Usuário inválido.' });
 
-    if (!usuario) return res.status(401).json({ error: 'Usuário não encontrado.' });
-
-    req.usuario = usuario; // ✅ Usar "usuario" para consistência com o controller
+    req.user = user;
     next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Token inválido.' });
+  } catch (err) {
+    res.status(401).json({ error: 'Token inválido ou expirado.' });
   }
 };
 

@@ -35,6 +35,7 @@ app.use('/api/movimentos', movimentosRoutes);
 app.use('/api/despesas-fixas', despesasFixasRoutes);
 app.use('/api/receitas-fixas', receitasFixasRoutes);
 app.use('/api/resumo-final', resumoFinalRoutes); // ✅ Inclui / e /excel
+app.get('/api/auth/usuario', autenticarToken, usuarioAutenticado);
 
 // ✅ Health check (útil para Render, Vercel, etc.)
 app.get('/healthz', (req, res) => res.send('OK'));
