@@ -11,62 +11,68 @@ export const getResumoFinanceiro = async (userId, cartaoSelecionado, devedorSele
   const todasTransacoes = await Transacao.find(filtroBase);
   const mesesUnicosSet = new Set();
 
-  todasTransacoes.forEach(t => {
+  todasTransacoes.forEach((t) => {
     if (t.vencimento) mesesUnicosSet.add(t.vencimento);
   });
 
-  const mesesOrdenados = Array.from(mesesUnicosSet)
-    .sort((a, b) => {
-      const [ma, aa] = a.split('/').map(Number);
-      const [mb, ab] = b.split('/').map(Number);
-      return aa !== ab ? aa - ab : ma - mb;
-    });
+  const mesesOrdenados = Array.from(mesesUnicosSet).sort((a, b) => {
+    const [ma, aa] = a.split('/').map(Number);
+    const [mb, ab] = b.split('/').map(Number);
+    return aa !== ab ? aa - ab : ma - mb;
+  });
 
   const resultado = [];
 
   for (const mes of mesesOrdenados) {
-    const filtro = {
+    const filtroMes = {
       usuario: userId,
       formaPagamento: 'cartao',
       vencimento: mes,
     };
-    if (cartaoSelecionado) filtro.cartaoDescricao = cartaoSelecionado;
-    if (devedorSelecionado) filtro.devedor = devedorSelecionado;
+    if (cartaoSelecionado) filtroMes.cartaoDescricao = cartaoSelecionado;
+    if (devedorSelecionado) filtroMes.devedor = devedorSelecionado;
 
-    const transacoes = await Transacao.find(filtro);
-    const despesasFixas = await DespesaFixa.find({ userId });
-    const receitasFixas = await ReceitaFixa.find({ userId });
+    const transacoes = await Transacao.find(filtroMes);
+
+    let despesasFixas = [];
+    let receitasFixas = [];
+
+    if (devedorSelecionado) {
+      despesasFixas = await DespesaFixa.find({ userId, devedor: devedorSelecionado });
+      receitasFixas = await ReceitaFixa.find({ userId, devedor: devedorSelecionado });
+    }
 
     const totalTransacoes = transacoes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
     const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + (Number(d.valor) || 0), 0);
     const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
-    const valorFinal = totalDespesasFixas + totalTransacoes - totalReceitasFixas;
+
+    const valorFinal = totalReceitasFixas - (totalTransacoes + totalDespesasFixas);
 
     resultado.push({
       mes,
-      transacoes: transacoes.map(t => ({
+      transacoes: transacoes.map((t) => ({
         descricao: t.descricao,
         valor: Number(t.valor) || 0,
       })),
-      despesasFixas: despesasFixas.map(d => ({
+      despesasFixas: despesasFixas.map((d) => ({
         descricao: d.descricao,
         valor: Number(d.valor) || 0,
       })),
-      receitasFixas: receitasFixas.map(r => ({
+      receitasFixas: receitasFixas.map((r) => ({
         descricao: r.descricao,
         valor: Number(r.valor) || 0,
       })),
-      totalTransacoes: Number(totalTransacoes.toFixed(2)) || 0,
-      totalDespesasFixas: Number(totalDespesasFixas.toFixed(2)) || 0,
-      totalReceitasFixas: Number(totalReceitasFixas.toFixed(2)) || 0,
-      valorFinal: Number(valorFinal.toFixed(2)) || 0,
+      totalTransacoes: Number(totalTransacoes.toFixed(2)),
+      totalDespesasFixas: Number(totalDespesasFixas.toFixed(2)),
+      totalReceitasFixas: Number(totalReceitasFixas.toFixed(2)),
+      valorFinal: Number(valorFinal.toFixed(2)),
     });
   }
 
   return resultado;
 };
 
-// ✅ Handler que responde no endpoint /api/resumo-final
+// Handler do endpoint GET /resumo-final
 export const getResumoFinal = async (req, res) => {
   try {
     const userId = req.user.id;

@@ -1,114 +1,116 @@
 
 // controllers/resumoFinalExcelController.js
 import ExcelJS from 'exceljs';
-import { getResumoFinanceiro } from './resumoFinalController.js';
-
-const aplicarFormatoMonetario = (worksheet, colunaKey) => {
-  worksheet.eachRow((row, rowNumber) => {
-    const cell = row.getCell(colunaKey);
-    if (rowNumber > 1 && typeof cell.value === 'number') {
-      cell.numFmt = 'R$ #,##0.00';
-    }
-  });
-};
+import Transacao from '../models/Transacao.js';
+import DespesaFixa from '../models/DespesaFixa.js';
+import ReceitaFixa from '../models/ReceitaFixa.js';
+import { Buffer } from 'buffer';
 
 export const exportarResumoExcel = async (req, res) => {
   try {
     const userId = req.user.id;
     const { cartaoSelecionado, devedorSelecionado } = req.query;
 
-    const resumo = await getResumoFinanceiro(userId, cartaoSelecionado, devedorSelecionado);
+    // Buscar transações filtradas
+    const filtroTransacoes = { usuario: userId, formaPagamento: 'cartao' };
+    if (cartaoSelecionado) filtroTransacoes.cartaoDescricao = cartaoSelecionado;
+    if (devedorSelecionado) filtroTransacoes.devedor = devedorSelecionado;
+
+    const transacoes = await Transacao.find(filtroTransacoes);
+
+    // Obter todos os meses únicos
+    const meses = Array.from(
+      new Set(transacoes.map((t) => t.vencimento).filter(Boolean))
+    ).sort((a, b) => {
+      const [ma, aa] = a.split('/').map(Number);
+      const [mb, ab] = b.split('/').map(Number);
+      return aa !== ab ? aa - ab : ma - mb;
+    });
 
     const workbook = new ExcelJS.Workbook();
-    const resumoSheet = workbook.addWorksheet('Resumo');
+    const abaResumo = workbook.addWorksheet('Resumo');
 
-    const headerStyle = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' } },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4E89AE' } },
-      alignment: { horizontal: 'center' },
-      border: {
-        top: { style: 'thin' },
-        bottom: { style: 'thin' },
-        left: { style: 'thin' },
-        right: { style: 'thin' },
-      },
-    };
+    // Cabeçalho da aba "Resumo"
+    abaResumo.addRow([
+      'Mês',
+      'Total Transações',
+      'Total Despesas Fixas',
+      'Total Receitas Fixas',
+      'Valor Final (R$)',
+    ]);
 
-    resumoSheet.columns = [
-      { header: 'Mês', key: 'mes', width: 15 },
-      { header: 'Total Transações', key: 'totalTransacoes', width: 20 },
-      { header: 'Total Despesas Fixas', key: 'totalDespesasFixas', width: 22 },
-      { header: 'Total Receitas Fixas', key: 'totalReceitasFixas', width: 22 },
-      { header: 'Valor Final', key: 'valorFinal', width: 20 },
-    ];
-    resumoSheet.getRow(1).eachCell(cell => (cell.style = headerStyle));
+    for (const mes of meses) {
+      const filtroMes = {
+        usuario: userId,
+        formaPagamento: 'cartao',
+        vencimento: mes,
+      };
+      if (cartaoSelecionado) filtroMes.cartaoDescricao = cartaoSelecionado;
+      if (devedorSelecionado) filtroMes.devedor = devedorSelecionado;
 
-    resumo.forEach((mes) => {
-      const abaNome = mes.mes.replace(/[\/*?:\[\]]/g, '-');
-      resumoSheet.addRow({
-        mes: { text: mes.mes, hyperlink: `#${abaNome}!A1` },
-        totalTransacoes: mes.totalTransacoes,
-        totalDespesasFixas: mes.totalDespesasFixas,
-        totalReceitasFixas: mes.totalReceitasFixas,
-        valorFinal: mes.valorFinal,
+      const transacoesMes = await Transacao.find(filtroMes);
+      let despesasFixas = [];
+      let receitasFixas = [];
+
+      if (devedorSelecionado) {
+        despesasFixas = await DespesaFixa.find({ userId, devedor: devedorSelecionado });
+        receitasFixas = await ReceitaFixa.find({ userId, devedor: devedorSelecionado });
+      }
+
+      const totalTransacoes = transacoesMes.reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
+      const totalDespesasFixas = despesasFixas.reduce((acc, d) => acc + (Number(d.valor) || 0), 0);
+      const totalReceitasFixas = receitasFixas.reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
+      const valorFinal = totalReceitasFixas - (totalTransacoes + totalDespesasFixas);
+
+      // Adiciona linha no resumo
+      abaResumo.addRow([
+        { text: mes, hyperlink: `#${mes}!A1` },
+        totalTransacoes,
+        totalDespesasFixas,
+        totalReceitasFixas,
+        valorFinal,
+      ]);
+
+      // Aba detalhada por mês
+      const abaMes = workbook.addWorksheet(mes);
+      abaMes.addRow([`Detalhamento do mês: ${mes}`]);
+      abaMes.addRow([]);
+
+      abaMes.addRow(['Transações']);
+      abaMes.addRow(['Descrição', 'Valor']);
+      transacoesMes.forEach((t) => {
+        abaMes.addRow([t.descricao, t.valor]);
       });
-    });
+      abaMes.addRow(['Total Transações', totalTransacoes]);
+      abaMes.addRow([]);
 
-    aplicarFormatoMonetario(resumoSheet, 2);
-    aplicarFormatoMonetario(resumoSheet, 3);
-    aplicarFormatoMonetario(resumoSheet, 4);
-    aplicarFormatoMonetario(resumoSheet, 5);
-
-    resumo.forEach((mesResumo) => {
-      const abaNome = mesResumo.mes.replace(/[\/*?:\[\]]/g, '-');
-      const aba = workbook.addWorksheet(abaNome);
-
-      aba.columns = [
-        { header: 'Tipo', key: 'tipo', width: 22 },
-        { header: 'Descrição', key: 'descricao', width: 35 },
-        { header: 'Valor (R$)', key: 'valor', width: 18 },
-      ];
-      aba.getRow(1).eachCell(cell => (cell.style = headerStyle));
-
-      mesResumo.transacoes.forEach(t => {
-        aba.addRow({ tipo: 'Transação', descricao: t.descricao, valor: t.valor });
-      });
-
-      mesResumo.despesasFixas.forEach(d => {
-        aba.addRow({ tipo: 'Despesa Fixa', descricao: d.descricao, valor: d.valor });
-      });
-
-      mesResumo.receitasFixas.forEach(r => {
-        aba.addRow({ tipo: 'Receita Fixa', descricao: r.descricao, valor: r.valor });
-      });
-
-      aba.addRow({});
-      aba.addRow({ tipo: 'TOTAL TRANSAÇÕES', valor: mesResumo.totalTransacoes });
-      aba.addRow({ tipo: 'TOTAL DESPESAS FIXAS', valor: mesResumo.totalDespesasFixas });
-      aba.addRow({ tipo: 'TOTAL RECEITAS FIXAS', valor: mesResumo.totalReceitasFixas });
-      aba.addRow({ tipo: 'VALOR FINAL', valor: mesResumo.valorFinal });
-
-      aplicarFormatoMonetario(aba, 3);
-
-      aba.eachRow((row) => {
-        row.eachCell((cell) => {
-          cell.border = {
-            top: { style: 'thin' },
-            bottom: { style: 'thin' },
-            left: { style: 'thin' },
-            right: { style: 'thin' },
-          };
-          cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      if (devedorSelecionado) {
+        abaMes.addRow(['Despesas Fixas']);
+        abaMes.addRow(['Descrição', 'Valor']);
+        despesasFixas.forEach((d) => {
+          abaMes.addRow([d.descricao, d.valor]);
         });
-      });
-    });
+        abaMes.addRow(['Total Despesas Fixas', totalDespesasFixas]);
+        abaMes.addRow([]);
+
+        abaMes.addRow(['Receitas Fixas']);
+        abaMes.addRow(['Descrição', 'Valor']);
+        receitasFixas.forEach((r) => {
+          abaMes.addRow([r.descricao, r.valor]);
+        });
+        abaMes.addRow(['Total Receitas Fixas', totalReceitasFixas]);
+        abaMes.addRow([]);
+      }
+
+      abaMes.addRow(['Valor Final', valorFinal]);
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    res.setHeader('Content-Disposition', 'attachment; filename="resumo-financeiro.xlsx"');
+    res.setHeader('Content-Disposition', 'attachment; filename=resumo-final.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(Buffer.from(buffer));
-  } catch (err) {
-    console.error('❌ Erro ao exportar Excel:', err);
-    res.status(500).json({ error: 'Erro ao gerar o Excel' });
+  } catch (error) {
+    console.error('Erro ao exportar Excel:', error);
+    res.status(500).json({ error: 'Erro ao exportar resumo Excel' });
   }
 };
