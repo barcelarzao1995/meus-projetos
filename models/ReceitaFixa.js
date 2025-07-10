@@ -1,7 +1,6 @@
-// models/ReceitaFixa.js
 import mongoose from 'mongoose';
 
-const receitaFixaSchema = new mongoose.Schema({
+const ReceitaFixaSchema = new mongoose.Schema({
   descricao: {
     type: String,
     required: true,
@@ -11,13 +10,15 @@ const receitaFixaSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  devedor: {
+    type: String, // Nome do devedor (ex: "João") — opcional
+    default: '',
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
-}, {
-  timestamps: true,
-});
+}, { timestamps: true });
 
-export default mongoose.model('ReceitaFixa', receitaFixaSchema);
+export default mongoose.model('ReceitaFixa', ReceitaFixaSchema);
