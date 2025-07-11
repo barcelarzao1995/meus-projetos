@@ -3,14 +3,14 @@ import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { getBIDados } from './biController.js'; // Supondo que você tenha essa função
+import { getResumoBI } from './biController.js'; // Supondo que você tenha essa função
 
 export const exportarBIExcel = async (req, res) => {
   try {
     const userId = req.user.id;
     const { filtroCartao, filtroDevedor, filtroMes } = req.query;
 
-    const dados = await getBIDados(userId, filtroCartao, filtroDevedor, filtroMes);
+    const dados = await getResumoBI(userId, filtroCartao, filtroDevedor, filtroMes);
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Painel BI');
