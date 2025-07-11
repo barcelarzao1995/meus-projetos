@@ -1,22 +1,23 @@
 // controllers/biController.js
 import Transacao from '../models/Transacao.js';
 
-export const getResumoBI = async (req, res) => {
-  try {
-    const { cartao, devedor, mes } = req.query;
+export const getResumoBI = async (userId, cartao = '', devedor = '', mes = '') => {
+  const filtro = { userId };
 
-    const filtro = {};
-    if (cartao) filtro.cartaoDescricao = cartao;
-    if (devedor) filtro.devedor = devedor;
-    if (mes) filtro.vencimento = mes;
+  if (cartao) filtro.formaPagamento = cartao;
+  if (devedor) filtro.devedor = devedor;
+  if (mes) filtro.mes = mes;
 
-    const transacoes = await Transacao.find(filtro);
+  const transacoes = await Transacao.find(filtro);
 
-    // Aqui você pode montar um resumo (ou só retornar as transações):
-    res.json({ transacoes });
-  } catch (error) {
-    console.error('Erro no getResumoBI:', error);
-    res.status(500).json({ error: 'Erro ao obter resumo BI' });
-  }
+  const dadosTabela = transacoes.map((t) => ({
+    mes: t.mes,
+    cartao: t.formaPagamento,
+    descricao: t.descricao,
+    totalParcelas: t.totalParcelas,
+    valorTotal: t.valorTotal,
+  }));
+
+  return dadosTabela;
 };
 
