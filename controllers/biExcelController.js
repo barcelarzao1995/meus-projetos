@@ -16,6 +16,8 @@ export const exportarBIExcel = async (req, res) => {
     });
 
     const dados = await getResumoBI(userId, filtroCartao, filtroDevedor, filtroMes);
+    console.log('🔍 userId recebido:', userId);
+
 
     console.log('🟢 Dados retornados:', dados?.length);
 
