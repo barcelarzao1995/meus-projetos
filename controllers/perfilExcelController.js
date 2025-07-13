@@ -1,10 +1,8 @@
-// controllers/perfilExcelController.js
 import ExcelJS from 'exceljs';
-import { writeFileSync } from 'fs';
 import path from 'path';
 import Transacao from '../models/Transacao.js';
-
-const sanitizeSheetName = (name) => name.replace(/[\\/*?:[\]]/g, '-');
+import { sanitizeSheetName, sanitizeFileName } from '../utils/sanitize.js';
+import { writeFileSync } from 'fs';
 
 export const exportarPerfilExcel = async (req, res) => {
   try {
@@ -108,7 +106,11 @@ export const exportarPerfilExcel = async (req, res) => {
       });
     }
 
-    const filePath = path.join('public', `perfil-transacoes-${Date.now()}.xlsx`);
+    // Geração de nome de arquivo com filtros (se houver)
+    const rawName = `perfil-transacoes-${cartao || ''}-${devedor || ''}-${mes || ''}-${Date.now()}`;
+    const safeFileName = sanitizeFileName(rawName);
+    const filePath = path.join('public', `${safeFileName}.xlsx`);
+
     await workbook.xlsx.writeFile(filePath);
     res.download(filePath);
   } catch (error) {
