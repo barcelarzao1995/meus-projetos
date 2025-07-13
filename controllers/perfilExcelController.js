@@ -1,8 +1,7 @@
+// controllers/perfilExcelController.js
 import ExcelJS from 'exceljs';
-import path from 'path';
 import Transacao from '../models/Transacao.js';
 import { sanitizeSheetName, sanitizeFileName } from '../utils/sanitize.js';
-import { writeFileSync } from 'fs';
 
 export const exportarPerfilExcel = async (req, res) => {
   try {
@@ -47,7 +46,6 @@ export const exportarPerfilExcel = async (req, res) => {
       });
     });
 
-    // Estilo visual do resumo
     resumoSheet.eachRow((row, index) => {
       row.alignment = { vertical: 'middle', horizontal: 'left' };
       if (index === 1) {
@@ -60,10 +58,11 @@ export const exportarPerfilExcel = async (req, res) => {
       }
     });
 
-    // Criar uma aba para cada mês
+    // Abas por mês
     for (const mes in transacoesPorMes) {
       const sheetName = sanitizeSheetName(mes);
       const sheet = workbook.addWorksheet(sheetName);
+
       sheet.columns = [
         { header: 'Cartão', key: 'cartao', width: 25 },
         { header: 'Descrição', key: 'descricao', width: 30 },
@@ -73,7 +72,7 @@ export const exportarPerfilExcel = async (req, res) => {
 
       let totalMes = 0;
 
-      transacoesPorMes[mes].forEach((t) => {
+      transacoesPorMes[mes].forEach(t => {
         sheet.addRow({
           cartao: t.cartaoDescricao,
           descricao: t.descricao,
@@ -106,13 +105,15 @@ export const exportarPerfilExcel = async (req, res) => {
       });
     }
 
-    // Geração de nome de arquivo com filtros (se houver)
-    const rawName = `perfil-transacoes-${cartao || ''}-${devedor || ''}-${mes || ''}-${Date.now()}`;
-    const safeFileName = sanitizeFileName(rawName);
-    const filePath = path.join('public', `${safeFileName}.xlsx`);
+    const buffer = await workbook.xlsx.writeBuffer();
 
-    await workbook.xlsx.writeFile(filePath);
-    res.download(filePath);
+    const safeFileName = sanitizeFileName(
+      `perfil-transacoes-${cartao || 'todos'}-${devedor || 'todos'}-${mes || 'todos'}-${Date.now()}`
+    );
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${safeFileName}.xlsx`);
+    res.send(buffer);
   } catch (error) {
     console.error('Erro ao gerar Excel do perfil:', error);
     res.status(500).json({ erro: 'Erro ao gerar Excel do perfil' });
