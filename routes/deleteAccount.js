@@ -1,9 +1,9 @@
 import express from 'express';
-import { excluirConta } from '../controllers/deleteAccountController.js';
 import { autenticarToken } from '../middleware/auth.js';
+import deleteAccountController from '../controllers/deleteAccountController.js';
 
 const router = express.Router();
 
-router.delete('/', autenticarToken, excluirConta);
+router.delete('/', autenticarToken, deleteAccountController);
 
 export default router;
