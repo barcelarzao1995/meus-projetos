@@ -17,6 +17,7 @@ import receitasFixasRoutes from './routes/receitasFixas.js';
 import resumoFinalRoutes from './routes/resumoFinal.js'; // Inclui getResumoFinal e exportarResumoExcel
 import biRoutes from './routes/bi.js'; // 👈 importar a nova rota
 import perfilRoutes from './routes/perfil.js';
+import usuariosRoutes from './routes/usuarios.js';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api/receitas-fixas', receitasFixasRoutes);
 app.use('/api/resumo-final', resumoFinalRoutes); // ✅ Inclui / e /excel
 app.use('/api/bi', biRoutes); // 👈 adicionar a nova rota aqui
 app.use('/api/perfil', perfilRoutes);
+app.use('/api/usuarios', usuariosRoutes);
 
 // ✅ Health check (útil para Render, Vercel, etc.)
 app.get('/healthz', (req, res) => res.send('OK'));
