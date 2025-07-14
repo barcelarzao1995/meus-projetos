@@ -26,4 +26,4 @@ export const excluirConta = async (req, res) => {
   }
 };
 
-export default deleteAccountController;
+export default excluirConta;
