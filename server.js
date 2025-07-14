@@ -42,7 +42,7 @@ app.use('/api/resumo-final', resumoFinalRoutes); // ✅ Inclui / e /excel
 app.use('/api/bi', biRoutes); // 👈 adicionar a nova rota aqui
 app.use('/api/perfil', perfilRoutes);
 app.use('/api/usuarios', usuariosRoutes);
-app.use('/api/excluir-conta', deleteAccountRoutes);
+app.use('/api/delete-account', deleteAccountRoutes);
 
 // ✅ Health check (útil para Render, Vercel, etc.)
 app.get('/healthz', (req, res) => res.send('OK'));
