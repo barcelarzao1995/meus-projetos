@@ -18,6 +18,7 @@ import resumoFinalRoutes from './routes/resumoFinal.js'; // Inclui getResumoFina
 import biRoutes from './routes/bi.js'; // 👈 importar a nova rota
 import perfilRoutes from './routes/perfil.js';
 import usuariosRoutes from './routes/usuarios.js';
+import deleteAccountRoutes from './routes/deleteAccount.js';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use('/api/resumo-final', resumoFinalRoutes); // ✅ Inclui / e /excel
 app.use('/api/bi', biRoutes); // 👈 adicionar a nova rota aqui
 app.use('/api/perfil', perfilRoutes);
 app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/excluir-conta', deleteAccountRoutes);
 
 // ✅ Health check (útil para Render, Vercel, etc.)
 app.get('/healthz', (req, res) => res.send('OK'));
